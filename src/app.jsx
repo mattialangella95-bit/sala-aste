@@ -1192,7 +1192,9 @@ function Listone(props) {
         {lista.length} giocatori
       </div>
       <div style={{ background: "#fff", border: `1px solid ${C.riga}`, borderRadius: 3 }}>
-        {lista.slice(0, 300).map((p) => (
+        {/* tutti quanti, uno sotto l'altro. Il numero qui sopra e le righe disegnate
+            devono dire la stessa cosa, altrimenti sembra che la lista finisca prima */}
+        {lista.map((p) => (
           <Riga key={p.id} p={p} {...props} onApri={() => setSel(p.id)} />
         ))}
         {!lista.length && (
@@ -2304,7 +2306,8 @@ function Guida() {
           <><b>Solo target</b> lascia chi hai messo da <b>Mi piace</b> in su, e anche chi hai semplicemente segnato per un campionato, perché anche quello è un target.</>,
           <><b>Nascondi presi</b> toglie chi è già stato assegnato nel campionato che stai guardando. Tienilo acceso durante l'asta.</>,
           <><b>Solo titolari</b> compare quando le probabili sono state caricate, e lascia in lista solo chi è dato dall'80 per cento in su.</>,
-          <><b>Ordina per priorità</b> mette in cima prima chi vuoi in tre campionati, poi in due, poi in uno. A parità viene prima chi ti interessa di più, e a parità di giudizio quello che vale di più. È l'ordine giusto per non arrivare impreparato.</>,
+          <><b>Ordina per priorità</b> mette in cima chi vuoi nel maggior numero di campionati, poi via a scendere fino a chi ne vuoi in uno solo. A parità viene prima chi ti interessa di più, e a parità di giudizio quello che vale di più. È l'ordine giusto per non arrivare impreparato.</>,
+          <>Gli altri ordinamenti sono <b>quota</b>, cioè il prezzo di listino, <b>fvm</b>, cioè quanto vale davvero, <b>fantamedia</b>, cioè quanti punti porta a settimana, e <b>nome</b>, che serve solo per trovare qualcuno al volo. Con il filtro <b>rigoristi</b> acceso spariscono tutti, perché lì l'ordine è fisso, per rigori battuti.</>,
         ]} />
       </Blocco>
 
@@ -2314,6 +2317,8 @@ function Guida() {
         si legge in tre posti.
         <Elenco voci={[
           <>Nella scheda <b>Probabili</b>, squadra per squadra, con il modulo, gli undici e la panchina. I tuoi hanno il fondo colorato, verde se ce l'hai già, rosa se lo vuoi.</>,
+          <>In cima, accanto al numero delle squadre, c'è scritto <b>quanti dei tuoi sono dati titolari</b> sul totale di quelli che hai segnato. È il numero per cui apri questa scheda.</>,
+          <>Le squadre escono <b>nell'ordine delle partite</b>, quindi le due che si affrontano finiscono una sotto l'altra. Inter e Monza, poi Udinese e Como, e così via.</>,
           <>Nel <b>listone</b>, come numerino accanto alla squadra.</>,
           <>Nella <b>scheda del giocatore</b>, come pastiglia sotto il nome.</>,
         ]} />
@@ -2454,6 +2459,7 @@ function Guida() {
           <>Il nome si cambia anche <b>dalla testata</b>, con la matitina accanto al campionato che stai guardando. Chiamali come si chiamano davvero, è più facile che Campionato 1 e Campionato 2.</>,
           <>Le <b>fasce del bonus difensivo</b> sono quelle ufficiali, ma quanti punti valgono lo decide ogni lega. Mettici i vostri.</>,
           <>Il <b>backup</b> scarica un file con tutto il tuo lavoro. Non serve per passare da un dispositivo all'altro, quello funziona da solo, ma è una rete di sicurezza che non costa niente.</>,
+          <><b>Ripristina backup</b> fa il contrario, rimette dentro un file scaricato prima. Serve solo se il browser ha cancellato i dati o se hai combinato un guaio e vuoi tornare indietro. Attenzione, <b>sostituisce quello che c'è adesso</b>, non lo aggiunge, e la pagina si ricarica da sola.</>,
           <>In fondo ci sono i tasti per <b>azzerare</b> gli acquisti o i giudizi. Chiedono conferma, ma non si torna indietro.</>,
         ]} />
       </Blocco>
@@ -2463,6 +2469,7 @@ function Guida() {
           <>In alto a destra c'è una scritta piccola che dice sempre come sta andando. <b>Nuvola collegata</b> vuol dire tutto a posto, <b>salvato</b> con l'ora vuol dire che ha appena registrato quello che hai fatto.</>,
           <>Se dice <b>senza rete, lavoro qui</b> non hai perso niente. Continui a lavorare normalmente e appena la linea torna spedisce tutto da solo.</>,
           <>Non vedi una cosa che avevi fatto da un altro dispositivo, ricarica la pagina. All'apertura va a prendere la versione più recente.</>,
+          <>Le scritte che compaiono lassù sono parecchie, tipo <b>mando il listone</b> o <b>probabili pubblicate</b>, e sono tutte normali. Le uniche da guardare sono quelle <b>arancioni</b>, che vogliono dire che qualcosa non è ancora partito. Anche lì non devi fare niente, riprova da solo.</>,
           <>Su iPhone e iPad conviene aggiungere il sito alla schermata Home. Tasto condividi, poi Aggiungi a Home, e si comporta come un'app.</>,
         ]} />
       </Blocco>
