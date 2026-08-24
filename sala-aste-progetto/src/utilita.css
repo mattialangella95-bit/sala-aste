@@ -1,0 +1,36 @@
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0;-webkit-text-size-adjust:100%}
+body{background:#F7E9EC;font-family:'Helvetica Neue',Inter,ui-sans-serif,system-ui,sans-serif;overscroll-behavior-y:none}
+button{font:inherit;cursor:pointer;background:none;border:none;padding:0;color:inherit;text-align:inherit}
+input,textarea{font-family:inherit;color:inherit;background:#fff;outline:none}
+input:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px solid #D02E5E;outline-offset:1px}
+.flex{display:flex}
+.flex-1{flex:1 1 0%}
+.flex-wrap{flex-wrap:wrap}
+.min-w-0{min-width:0}
+.items-center{align-items:center}
+.items-start{align-items:flex-start}
+.items-end{align-items:flex-end}
+.items-baseline{align-items:baseline}
+.justify-between{justify-content:space-between}
+.justify-center{justify-content:center}
+.gap-1{gap:.25rem}
+.gap-1\.5{gap:.375rem}
+.gap-2{gap:.5rem}
+.gap-3{gap:.75rem}
+.gap-4{gap:1rem}
+.mt-1{margin-top:.25rem}
+.mt-2{margin-top:.5rem}
+.mt-3{margin-top:.75rem}
+.text-left{text-align:left}
+.border{border-width:1px;border-style:solid}
+.transition-colors{transition:background-color .15s,border-color .15s,color .15s}
+.transition-all{transition:all .15s}
+#spia{position:fixed;top:6px;right:8px;z-index:80;font-family:ui-monospace,Menlo,monospace;font-size:10px;
+  letter-spacing:.06em;text-transform:uppercase;color:#6B5B61;opacity:.45;transition:opacity .3s;pointer-events:none}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+/* la fila delle schede non entra tutta su un telefono stretto, quindi scorre col dito */
+.barra{overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none;
+  padding-bottom:2px;scroll-snap-type:x proximity;overscroll-behavior-x:contain}
+.barra::-webkit-scrollbar{display:none}
+.barra>*{flex:0 0 auto;scroll-snap-align:start}
