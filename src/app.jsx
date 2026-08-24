@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { sha256, pulisci } from "./cripto.js";
 import * as nuvola from "./nuvola.js";
+import { leggiProbabili, mappaPerId, fasciaTitolarita } from "./probabili.js";
 /* la libreria per leggere gli xlsx pesa parecchio e serve solo a chi importa il listone,
    quindi la carichiamo al volo solo al primo import */
 let XLSX = null;
@@ -220,6 +221,10 @@ const chiaveStato = (codice) => "fanta:stato:" + codice;
    perche' e' grosso e cambia solo quando l'amministratore importa gli Excel */
 const CHIAVE_LISTONE = "fanta:listone";
 
+/* le probabili formazioni stanno in un cassetto loro, sempre uguale per tutti,
+   perche' anche quelle le carica solo l'amministratore */
+const CHIAVE_PROBABILI = "fanta:probabili";
+
 /* la vecchia chiave unica, da prima che esistessero i profili.
    Alla prima entrata la travasiamo nel cassetto della parola usata. */
 const CHIAVE_VECCHIA = "fanta:stato";
@@ -237,6 +242,29 @@ const C = {
 
 const mono = { fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontVariantNumeric: "tabular-nums" };
 const display = { fontFamily: "'Helvetica Neue', Inter, ui-sans-serif, system-ui, sans-serif", letterSpacing: "-0.03em" };
+
+/* ------------------------------------------------------------------ */
+/*  PROBABILI FORMAZIONI                                               */
+/* ------------------------------------------------------------------ */
+
+/* le tre fasce di titolarita', ognuna con il suo colore */
+const COLORE_FASCIA = { titolare: C.campo, ballottaggio: C.ocra, riserva: C.inchiostroTenue };
+
+/* la percentuale di un giocatore, zero se di lui non sappiamo niente */
+const percDi = (prob, id) => prob?.[id]?.perc || 0;
+
+/* quanti giorni sono passati da una data salvata, null se la data non c'e' */
+function giorniDa(iso) {
+  const t = Date.parse(iso || "");
+  return isNaN(t) ? null : Math.floor((Date.now() - t) / 86400000);
+}
+
+/* data e ora in italiano, per la testata delle probabili */
+function quandoLeggibile(iso) {
+  const t = Date.parse(iso || "");
+  if (isNaN(t)) return "";
+  return new Date(t).toLocaleString("it-IT", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
+}
 
 /* ------------------------------------------------------------------ */
 /*  UTILITY                                                            */
@@ -486,6 +514,7 @@ export default function App() {
   const [leghe, setLeghe] = useState(LEGHE_DEFAULT);
   const [mdTab, setMdTab] = useState(MD_DEFAULT);
   const [formazioni, setFormazioni] = useState({}); // legaId -> { modo, modulo, slots[] }
+  const [probabili, setProbabili] = useState(null);  // { giornata, squadre[], aggiornatoIl }
 
   const [vista, setVista] = useState("listone");
   const [legaAttiva, setLegaAttiva] = useState("L1");
@@ -496,6 +525,7 @@ export default function App() {
   const [filtroRuolo, setFiltroRuolo] = useState("TUTTI");
   const [soloInteresse, setSoloInteresse] = useState(false);
   const [nascondiPresi, setNascondiPresi] = useState(true);
+  const [soloTitolari, setSoloTitolari] = useState(false);
   const [ordine, setOrdine] = useState("priorita");
 
   /* ---------- chi sono ---------- */
@@ -528,6 +558,7 @@ export default function App() {
   /* teniamo da parte l'ultima cosa scritta, cosi' non riscriviamo mille volte la stessa */
   const ultimoProfilo = useRef("");
   const ultimoListone = useRef("");
+  const ultimoProbabili = useRef("");
   const daRimandare = useRef(false);   // c'e' qualcosa che la nuvola non ha ricevuto
 
   const leggiLocale = async (k) => {
@@ -542,6 +573,7 @@ export default function App() {
       /* 1. quello che c'e' gia' su questo dispositivo, cosi' l'app parte subito anche senza rete */
       let profilo = await leggiLocale(chiaveStato(codice));
       let listone = await leggiLocale(CHIAVE_LISTONE);
+      let probab = await leggiLocale(CHIAVE_PROBABILI);
 
       /* travaso dalla vecchia chiave unica, per chi arriva dalla versione precedente */
       if (!profilo || !listone) {
@@ -560,9 +592,10 @@ export default function App() {
         const esiti = await Promise.allSettled([
           nuvola.leggi(codice),
           nuvola.leggi(nuvola.RIGA_LISTONE),
+          nuvola.leggi(nuvola.RIGA_PROBABILI),
         ]);
         const valore = (e) => (e.status === "fulfilled" ? e.value : null);
-        const rProfilo = valore(esiti[0]), rListone = valore(esiti[1]);
+        const rProfilo = valore(esiti[0]), rListone = valore(esiti[1]), rProbabili = valore(esiti[2]);
         const guasto = esiti.some((e) => e.status === "rejected");
 
         if (rProfilo && (!profilo?.aggiornatoIl || rProfilo.aggiornato > profilo.aggiornatoIl)) {
@@ -572,6 +605,10 @@ export default function App() {
         if (rListone && (!listone?.aggiornatoIl || rListone.aggiornato > listone.aggiornatoIl)) {
           listone = { ...rListone.dati, aggiornatoIl: rListone.aggiornato };
           try { await window.storage.set(CHIAVE_LISTONE, JSON.stringify(listone)); } catch (e) { /* memoria negata */ }
+        }
+        if (rProbabili && (!probab?.aggiornatoIl || rProbabili.aggiornato > probab.aggiornatoIl)) {
+          probab = { ...rProbabili.dati, aggiornatoIl: rProbabili.aggiornato };
+          try { await window.storage.set(CHIAVE_PROBABILI, JSON.stringify(probab)); } catch (e) { /* memoria negata */ }
         }
 
         if (guasto) {
@@ -583,6 +620,7 @@ export default function App() {
       }
 
       if (listone?.players?.length) setPlayers(listone.players);
+      if (probab?.squadre?.length) setProbabili(probab);
       if (profilo) {
         setMeta(profilo.meta || {});
         setAste(profilo.aste || {});
@@ -597,6 +635,9 @@ export default function App() {
 
       ultimoProfilo.current = JSON.stringify({ meta: profilo?.meta || {}, aste: profilo?.aste || {}, leghe: profilo?.leghe || LEGHE_DEFAULT, formazioni: profilo?.formazioni || {}, mdTab: profilo?.mdTab || MD_DEFAULT });
       ultimoListone.current = JSON.stringify(listone?.players?.length ? listone.players : SEED);
+      ultimoProbabili.current = probab?.squadre?.length
+        ? JSON.stringify({ giornata: probab.giornata || "", squadre: probab.squadre })
+        : "";
       setPronto(true);
     })();
   }, [codice]);
@@ -648,6 +689,33 @@ export default function App() {
     }, 1200);
   }, [players, pronto, codice, admin]);
 
+  /* Salvataggio delle probabili, come il listone. Nella nuvola le manda
+     soltanto l'amministratore, tutti gli altri le leggono e basta. */
+  const salvaProbabiliRef = useRef(null);
+  useEffect(() => {
+    if (!pronto || !codice || !probabili?.squadre?.length) return;
+    const dati = { giornata: probabili.giornata || "", squadre: probabili.squadre };
+    const corpo = JSON.stringify(dati);
+    if (corpo === ultimoProbabili.current) return;
+    clearTimeout(salvaProbabiliRef.current);
+    salvaProbabiliRef.current = setTimeout(async () => {
+      ultimoProbabili.current = corpo;
+      /* la pagina salvata non dice quando e' stata aggiornata, quindi
+         la data buona e' il momento in cui l'abbiamo caricata */
+      const quando = probabili.aggiornatoIl || new Date().toISOString();
+      try { await window.storage.set(CHIAVE_PROBABILI, JSON.stringify({ ...dati, aggiornatoIl: quando })); } catch (e) { /* memoria piena */ }
+      if (!admin || !nuvola.nuvolaAccesa()) return;
+      nuvola.spia("mando le probabili");
+      try {
+        await nuvola.scrivi(nuvola.RIGA_PROBABILI, dati, quando);
+        nuvola.spia("probabili pubblicate");
+      } catch (e) {
+        nuvola.spia("probabili non spedite, riprovo", "avviso");
+        daRimandare.current = true;
+      }
+    }, 1200);
+  }, [probabili, pronto, codice, admin]);
+
   /* se la rete torna, riproviamo a spedire quello che era rimasto qui */
   useEffect(() => {
     const alRitorno = async () => {
@@ -657,12 +725,19 @@ export default function App() {
       try {
         await nuvola.scrivi(codice, { meta, aste, leghe, formazioni, mdTab }, quando);
         if (admin) await nuvola.scrivi(nuvola.RIGA_LISTONE, { players }, quando);
+        if (admin && probabili?.squadre?.length) {
+          await nuvola.scrivi(
+            nuvola.RIGA_PROBABILI,
+            { giornata: probabili.giornata || "", squadre: probabili.squadre },
+            probabili.aggiornatoIl || quando,
+          );
+        }
         nuvola.spia("rimesso in pari");
       } catch (e) { daRimandare.current = true; }
     };
     window.addEventListener("online", alRitorno);
     return () => window.removeEventListener("online", alRitorno);
-  }, [codice, admin, meta, aste, leghe, formazioni, mdTab, players]);
+  }, [codice, admin, meta, aste, leghe, formazioni, mdTab, players, probabili]);
 
   /* ---------- helper stato ---------- */
   const m = (id) => meta[id] || { interesse: 0, tags: [], max: {}, note: "", leghe: {} };
@@ -705,6 +780,11 @@ export default function App() {
     }
     return out;
   }, [players]);
+
+  /* ---------- probabili formazioni ----------
+     Dalla pagina salvata ricaviamo una mappa Id -> titolarita'. L'aggancio e'
+     sull'Id, lo stesso degli Excel, quindi non confrontiamo mai i nomi. */
+  const probPerId = useMemo(() => mappaPerId(probabili), [probabili]);
 
   /* se la lega che stai guardando e' Mantra, mostriamo le quotazioni Mantra */
   const mantraAttivo = (leghe.find((l) => l.id === legaAttiva)?.modalita) === "mantra";
@@ -807,6 +887,39 @@ export default function App() {
     return { ok: true, msg: `${righe.length} righe lette da ${file.name}${quali}` };
   }
 
+  /* ---------- import delle probabili ----------
+     Si parte dalla pagina di Fantacalcio.it salvata dal browser come
+     Pagina web solo HTML. Dentro non c'e' nessuna data di aggiornamento,
+     quindi la data buona e' il momento in cui la carichiamo. */
+  async function importaProbabili(file) {
+    let letto;
+    try {
+      letto = leggiProbabili(await file.text());
+    } catch (e) {
+      return { ok: false, msg: `Non sono riuscito a leggere ${file.name}` };
+    }
+    if (!letto.squadre.length) {
+      return { ok: false, msg: `In ${file.name} non ho trovato nessuna squadra. Serve la pagina delle probabili salvata come Pagina web solo HTML` };
+    }
+
+    /* chi c'e' nel listone lo dicono le quotazioni, quindi l'aggancio si conta su quelli */
+    const noti = new Set(players.filter((p) => !p.seed).map((p) => p.id));
+    const tutti = letto.squadre.flatMap((sq) => sq.giocatori);
+    const fuori = noti.size ? tutti.filter((g) => !noti.has(g.id)) : [];
+
+    setProbabili({ giornata: letto.giornata, squadre: letto.squadre, aggiornatoIl: new Date().toISOString() });
+
+    return {
+      ok: true,
+      squadre: letto.squadre.length,
+      giocatori: tutti.length,
+      titolari: tutti.filter((g) => g.titolare).length,
+      giornata: letto.giornata,
+      senzaListone: !noti.size,
+      fuori: fuori.map((g) => `${g.nome} (${g.id})`),
+    };
+  }
+
   /* ---------- lista filtrata ---------- */
   const lista = useMemo(() => {
     const t = q.trim().toLowerCase();
@@ -818,6 +931,8 @@ export default function App() {
          semplicemente segnato per un campionato, perche' anche quello e' un target */
       if (soloInteresse && m(p.id).interesse < 3 && nLeghe(p.id) === 0) return false;
       if (nascondiPresi && statoIn(p.id, legaAttiva) !== "libero") return false;
+      /* solo titolari, cioe' chi nelle probabili sta dall'ottanta per cento in su */
+      if (soloTitolari && fasciaTitolarita(percDi(probPerId, p.id)) !== "titolare") return false;
       return true;
     });
     const cmp = {
@@ -829,7 +944,7 @@ export default function App() {
       nome: (a, b) => a.nome.localeCompare(b.nome),
     }[filtroRuolo === "RIG" ? "rigori" : ordine];
     return out.sort(cmp);
-  }, [players, meta, aste, q, filtroRuolo, soloInteresse, nascondiPresi, ordine, legaAttiva, leghe, mantraAttivo, rigoristi]);
+  }, [players, meta, aste, q, filtroRuolo, soloInteresse, nascondiPresi, soloTitolari, ordine, legaAttiva, leghe, mantraAttivo, rigoristi, probPerId]);
 
   /* prima di tutto, chi sei */
   if (!avviato) return <div style={{ padding: 40, ...mono, background: C.carta, minHeight: "100vh" }}>Un attimo</div>;
@@ -922,7 +1037,7 @@ export default function App() {
         </div>
 
         <nav className="flex gap-1 mt-3 barra">
-          {[["listone", "Listone"], ["asta", "Asta live"], ["campo", "Campo"], ["dati", "Dati"], ["guida", "Guida"]].map(([k, v]) => (
+          {[["listone", "Listone"], ["asta", "Asta live"], ["campo", "Campo"], ["dati", "Dati"], ["probabili", "Probabili"], ["guida", "Guida"]].map(([k, v]) => (
             <Btn key={k} attivo={vista === k} onClick={() => setVista(k)}>{v}</Btn>
           ))}
         </nav>
@@ -930,17 +1045,20 @@ export default function App() {
 
       <main style={{ padding: 12, paddingBottom: 90 }}>
         {vista === "listone" && (
-          <Listone {...{ lista, q, setQ, filtroRuolo, setFiltroRuolo, soloInteresse, setSoloInteresse, nascondiPresi, setNascondiPresi, ordine, setOrdine, leghe, m, setM, nLeghe, statoIn, prezzoIn, legaAttiva, mantraAttivo, rigoristi, setSel }} />
+          <Listone {...{ lista, q, setQ, filtroRuolo, setFiltroRuolo, soloInteresse, setSoloInteresse, nascondiPresi, setNascondiPresi, soloTitolari, setSoloTitolari, ordine, setOrdine, leghe, m, setM, nLeghe, statoIn, prezzoIn, legaAttiva, mantraAttivo, rigoristi, probPerId, setSel }} />
         )}
         {vista === "asta" && (
-          <AstaLive {...{ lista, q, setQ, filtroRuolo, setFiltroRuolo, leghe, lega, legaAttiva, mantraAttivo, rigoristi, m, nLeghe, statoIn, prezzoIn, assegnaGiocatore, liberaGiocatore, asta, speso, players, setSel }} />
+          <AstaLive {...{ lista, q, setQ, filtroRuolo, setFiltroRuolo, leghe, lega, legaAttiva, mantraAttivo, rigoristi, probPerId, m, nLeghe, statoIn, prezzoIn, assegnaGiocatore, liberaGiocatore, asta, speso, players, setSel }} />
         )}
         {vista === "campo" && (
           <Campo {...{ lega, legaAttiva, asta, players, mdTab, setLeghe, leghe, formazioni, setFormazioni, m, statoIn }} />
         )}
+        {vista === "probabili" && (
+          <Probabili {...{ probabili, players, leghe, m, nLeghe, statoIn, setSel }} />
+        )}
         {vista === "guida" && <Guida />}
         {vista === "dati" && (
-          <Dati {...{ importaFile, players, setPlayers, leghe, setLeghe, meta, aste, formazioni, setMeta, setAste, setFormazioni, legaAttiva, setLegaAttiva, mdTab, setMdTab, admin, codice }} />
+          <Dati {...{ importaFile, importaProbabili, probabili, setProbabili, players, setPlayers, leghe, setLeghe, meta, aste, formazioni, setMeta, setAste, setFormazioni, legaAttiva, setLegaAttiva, mdTab, setMdTab, admin, codice }} />
         )}
       </main>
 
@@ -948,6 +1066,7 @@ export default function App() {
         <Scheda
           p={players.find((x) => x.id === sel)}
           {...{ m, setM, leghe, statoIn, prezzoIn, assegnaGiocatore, liberaGiocatore, legaAttiva, mantraAttivo, rigoristi }}
+          prob={probPerId[sel]}
           chiudi={() => setSel(null)}
         />
       )}
@@ -959,11 +1078,13 @@ export default function App() {
 /*  RIGA GIOCATORE                                                     */
 /* ------------------------------------------------------------------ */
 
-function Riga({ p, leghe, m, setM, nLeghe, statoIn, prezzoIn, legaAttiva, mantraAttivo, rigoristi, onApri, compatta }) {
+function Riga({ p, leghe, m, setM, nLeghe, statoIn, prezzoIn, legaAttiva, mantraAttivo, rigoristi, probPerId, onApri, compatta }) {
   const mm = m(p.id);
   const inter = INTERESSE[mm.interesse];
   const stato = statoIn(p.id, legaAttiva);
   const n = nLeghe(p.id);
+  /* quanto e' dato titolare nelle probabili, zero se di lui non sappiamo niente */
+  const perc = percDi(probPerId, p.id);
 
   return (
     <div
@@ -987,7 +1108,9 @@ function Riga({ p, leghe, m, setM, nLeghe, statoIn, prezzoIn, legaAttiva, mantra
           {p.nome}
         </div>
         <div style={{ ...mono, fontSize: 10, color: C.inchiostroTenue, textTransform: "uppercase", letterSpacing: ".06em" }}>
-          {p.squadra}{p.rm?.length ? ` · ${p.rm.join(" ")}` : ""}
+          {p.squadra}
+          {perc ? <b style={{ color: COLORE_FASCIA[fasciaTitolarita(perc)] }}>{" " + perc + "%"}</b> : ""}
+          {p.rm?.length ? ` · ${p.rm.join(" ")}` : ""}
           {rigoristi?.[p.id] ? <b style={{ color: C.rosa }}>{" · rig " + rigoristi[p.id]}</b> : ""}{prezzoIn(p.id, legaAttiva) != null ? ` · pagato ${prezzoIn(p.id, legaAttiva)}` : ""}
         </div>
       </button>
@@ -1022,7 +1145,9 @@ function Riga({ p, leghe, m, setM, nLeghe, statoIn, prezzoIn, legaAttiva, mantra
 /* ------------------------------------------------------------------ */
 
 function Listone(props) {
-  const { lista, q, setQ, filtroRuolo, setFiltroRuolo, soloInteresse, setSoloInteresse, nascondiPresi, setNascondiPresi, ordine, setOrdine, setSel } = props;
+  const { lista, q, setQ, filtroRuolo, setFiltroRuolo, soloInteresse, setSoloInteresse, nascondiPresi, setNascondiPresi, soloTitolari, setSoloTitolari, ordine, setOrdine, probPerId, setSel } = props;
+  /* il filtro dei titolari ha senso solo se le probabili sono state caricate */
+  const conProbabili = Object.keys(probPerId || {}).length > 0;
   return (
     <>
       <input
@@ -1039,6 +1164,9 @@ function Listone(props) {
           onClick={() => setFiltroRuolo(filtroRuolo === "RIG" ? "TUTTI" : "RIG")}>rigoristi</Btn>
         <Btn piccolo tono="rosa" attivo={soloInteresse} onClick={() => setSoloInteresse(!soloInteresse)}>solo target</Btn>
         <Btn piccolo attivo={nascondiPresi} onClick={() => setNascondiPresi(!nascondiPresi)}>nascondi presi</Btn>
+        {conProbabili && (
+          <Btn piccolo tono="campo" attivo={soloTitolari} onClick={() => setSoloTitolari(!soloTitolari)}>solo titolari</Btn>
+        )}
       </div>
       <div className="flex gap-1 mt-1 flex-wrap items-center">
         <span style={{ ...mono, fontSize: 10, color: C.inchiostroTenue, textTransform: "uppercase" }}>ordina</span>
@@ -1663,10 +1791,21 @@ function Campo({ lega, legaAttiva, asta, players, mdTab, setLeghe, leghe, formaz
 /*  VISTA DATI                                                         */
 /* ------------------------------------------------------------------ */
 
-function Dati({ importaFile, players, setPlayers, leghe, setLeghe, meta, aste, formazioni, setMeta, setAste, setFormazioni, legaAttiva, setLegaAttiva, mdTab, setMdTab, admin, codice }) {
+function Dati({ importaFile, importaProbabili, probabili, setProbabili, players, setPlayers, leghe, setLeghe, meta, aste, formazioni, setMeta, setAste, setFormazioni, legaAttiva, setLegaAttiva, mdTab, setMdTab, admin, codice }) {
   const [msg, setMsg] = useState("");
+  const [esitoProb, setEsitoProb] = useState(null);
   const ref = useRef();
+  const refProb = useRef();
   const rifBackup = useRef();
+
+  /* la pagina delle probabili, una sola alla volta, salvata dal browser */
+  async function onProbabili(e) {
+    const f = e.target.files[0];
+    e.target.value = "";
+    if (!f) return;
+    setEsitoProb({ attesa: true });
+    setEsitoProb(await importaProbabili(f));
+  }
 
   async function onFiles(e) {
     /* Prima le quotazioni, che stabiliscono chi fa parte del listone,
@@ -1731,6 +1870,11 @@ function Dati({ importaFile, players, setPlayers, leghe, setLeghe, meta, aste, f
           <div style={{ ...mono, fontSize: 11, color: C.inchiostroTenue, marginTop: 8 }}>
             {players.filter((p) => !p.seed).length} giocatori importati, {players.length} in elenco
           </div>
+          <div style={{ ...mono, fontSize: 11, color: C.inchiostroTenue, marginTop: 4 }}>
+            {probabili?.squadre?.length
+              ? `probabili di ${probabili.squadre.length} squadre, aggiornate il ${quandoLeggibile(probabili.aggiornatoIl)}`
+              : "probabili formazioni non ancora caricate"}
+          </div>
         </div>
       )}
 
@@ -1749,6 +1893,56 @@ function Dati({ importaFile, players, setPlayers, leghe, setLeghe, meta, aste, f
         {msg && <div style={{ ...mono, fontSize: 11.5, color: C.campo, marginTop: 8 }}>{msg}</div>}
         <div style={{ ...mono, fontSize: 11, color: C.inchiostroTenue, marginTop: 8 }}>
           {players.filter((p) => !p.seed).length} giocatori importati, {players.length} in elenco
+        </div>
+      </div>
+      )}
+
+      {admin && (
+      <div style={{ background: "#fff", border: `2px solid ${C.rosa}`, borderRadius: 3, padding: 12, marginTop: 10 }}>
+        <div className="flex items-baseline gap-2">
+          <div style={{ fontSize: 15, fontWeight: 800 }}>Probabili formazioni</div>
+          <span style={{ ...mono, fontSize: 9.5, textTransform: "uppercase", letterSpacing: "0.1em",
+            color: C.rosa, border: `1px solid ${C.rosa}`, borderRadius: 2, padding: "1px 5px" }}>riservato</span>
+        </div>
+        <div style={{ fontSize: 12.5, color: C.inchiostroTenue, marginTop: 4, lineHeight: 1.45 }}>
+          Apri le probabili formazioni su Fantacalcio.it e salva la pagina con File,
+          Salva con nome, Pagina web solo HTML. Poi carica qui quel file. Anche qui l'aggancio
+          avviene sull'Id, quindi non conta come sono scritti i nomi.
+        </div>
+        <input ref={refProb} type="file" accept=".html,.htm,text/html" onChange={onProbabili} style={{ display: "none" }} />
+        <div className="mt-3"><Btn attivo onClick={() => refProb.current.click()}>scegli la pagina salvata</Btn></div>
+
+        {esitoProb?.attesa && (
+          <div style={{ ...mono, fontSize: 11.5, color: C.inchiostroTenue, marginTop: 8 }}>leggo la pagina</div>
+        )}
+        {esitoProb && !esitoProb.attesa && !esitoProb.ok && (
+          <div style={{ ...mono, fontSize: 11.5, color: C.rosa, marginTop: 8, lineHeight: 1.5 }}>{esitoProb.msg}</div>
+        )}
+        {esitoProb?.ok && (
+          <div style={{ ...mono, fontSize: 11.5, marginTop: 8, lineHeight: 1.6 }}>
+            <div style={{ color: C.campo }}>
+              {esitoProb.squadre} squadre e {esitoProb.giocatori} giocatori letti, {esitoProb.titolari} titolari
+              {esitoProb.giornata ? `, giornata ${esitoProb.giornata}` : ""}
+            </div>
+            {esitoProb.senzaListone ? (
+              <div style={{ color: C.ocra }}>
+                Il listone non c'è ancora, quindi l'aggancio non l'ho potuto controllare. Importa prima gli Excel.
+              </div>
+            ) : esitoProb.fuori.length ? (
+              <div style={{ color: C.ocra }}>
+                {esitoProb.fuori.length} senza riscontro nel listone, {esitoProb.fuori.slice(0, 24).join(", ")}
+                {esitoProb.fuori.length > 24 ? " e altri " + (esitoProb.fuori.length - 24) : ""}
+              </div>
+            ) : (
+              <div style={{ color: C.campo }}>Tutti agganciati al listone</div>
+            )}
+          </div>
+        )}
+
+        <div style={{ ...mono, fontSize: 11, color: C.inchiostroTenue, marginTop: 8 }}>
+          {probabili?.squadre?.length
+            ? `in memoria ${probabili.squadre.length} squadre, caricate il ${quandoLeggibile(probabili.aggiornatoIl)}`
+            : "nessuna pagina caricata finora"}
         </div>
       </div>
       )}
@@ -1868,6 +2062,137 @@ function Dati({ importaFile, players, setPlayers, leghe, setLeghe, meta, aste, f
 }
 
 /* ------------------------------------------------------------------ */
+/*  VISTA PROBABILI                                                    */
+/*  Le probabili formazioni dell'ultima giornata, squadra per squadra. */
+/*  Le squadre restano nell'ordine della pagina, cosi' le due di ogni  */
+/*  partita si leggono una accanto all'altra.                          */
+/* ------------------------------------------------------------------ */
+
+function Probabili({ probabili, players, leghe, m, nLeghe, statoIn, setSel }) {
+  /* dal listone ricaviamo Id -> giocatore, serve per aprire la scheda
+     e per sapere se e' uno che ti riguarda */
+  const perId = useMemo(() => {
+    const o = {};
+    for (const p of players) if (!p.seed) o[p.id] = p;
+    return o;
+  }, [players]);
+
+  /* Chi ti interessa davvero. Prima chi hai gia' in una rosa, poi chi hai
+     segnato come target, cioe' da Mi piace in su oppure marcato per un campionato. */
+  const tuo = (id) => {
+    if (!perId[id]) return null;
+    if (leghe.some((l) => statoIn(id, l.id) === "mio")) return "rosa";
+    if (m(id).interesse >= 3 || nLeghe(id) > 0) return "target";
+    return null;
+  };
+
+  if (!probabili?.squadre?.length) {
+    return (
+      <div style={{ background: "#fff", border: `1px solid ${C.riga}`, borderRadius: 3, padding: 20, textAlign: "center" }}>
+        <div style={{ fontSize: 15, fontWeight: 800 }}>Ancora nessuna probabile formazione</div>
+        <div style={{ fontSize: 13, color: C.inchiostroTenue, marginTop: 6, lineHeight: 1.5 }}>
+          Le carica l'amministratore dal pannello Dati, prendendo la pagina delle probabili
+          di Fantacalcio.it salvata dal browser. Appena le carica compaiono anche qui.
+        </div>
+      </div>
+    );
+  }
+
+  const giorni = giorniDa(probabili.aggiornatoIl);
+  const vecchie = giorni != null && giorni > 7;
+
+  /* quanti dei tuoi sono dati titolari, e' il motivo per cui guardi questa scheda */
+  const miei = [];
+  for (const sq of probabili.squadre) for (const g of sq.giocatori) if (tuo(g.id)) miei.push(g);
+  const mieiTitolari = miei.filter((g) => fasciaTitolarita(g.perc) === "titolare").length;
+
+  const voce = (g) => {
+    const q = tuo(g.id);
+    const col = COLORE_FASCIA[fasciaTitolarita(g.perc)];
+    return (
+      <div key={g.id} className="flex items-center gap-2"
+        style={{
+          borderBottom: `1px solid ${C.riga}`, padding: "5px 6px",
+          background: q === "rosa" ? "rgba(31,107,74,.10)" : q === "target" ? "rgba(208,46,94,.07)" : "transparent",
+        }}>
+        <div style={{ width: 3, alignSelf: "stretch", borderRadius: 2,
+          background: q === "rosa" ? C.campo : q === "target" ? C.rosa : "transparent" }} />
+        <div style={{ ...mono, width: 14, fontSize: 11, fontWeight: 700, color: C.inchiostroTenue }}>{g.ruolo}</div>
+        {perId[g.id] ? (
+          <button onClick={() => setSel(g.id)} className="flex-1 text-left min-w-0"
+            style={{ fontSize: 13, fontWeight: q ? 800 : 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {g.nome}
+          </button>
+        ) : (
+          /* non sta nel listone, quindi non ha una scheda da aprire */
+          <span className="flex-1 min-w-0" title="non è nel listone"
+            style={{ fontSize: 13, fontWeight: 600, color: C.inchiostroTenue, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {g.nome} °
+          </span>
+        )}
+        <div style={{ ...mono, fontSize: 12, fontWeight: 700, color: col, minWidth: 34, textAlign: "right" }}>{g.perc}%</div>
+      </div>
+    );
+  };
+
+  return (
+    <>
+      {/* testata, la data e la giornata sono la prima cosa da guardare */}
+      <div style={{ background: C.inchiostro, color: C.carta, borderRadius: 3, padding: "13px 15px" }}>
+        <div style={{ ...mono, fontSize: 10, textTransform: "uppercase", letterSpacing: ".14em", opacity: .7 }}>
+          probabili formazioni{probabili.giornata ? `, giornata ${probabili.giornata}` : ""}
+        </div>
+        <div style={{ fontSize: 25, fontWeight: 800, letterSpacing: "-.03em", lineHeight: 1.15, marginTop: 4 }}>
+          {quandoLeggibile(probabili.aggiornatoIl) || "data sconosciuta"}
+        </div>
+        <div style={{ ...mono, fontSize: 11, marginTop: 6, opacity: .85 }}>
+          {probabili.squadre.length} squadre · {mieiTitolari} dei tuoi dati titolari su {miei.length} segnati
+        </div>
+        {vecchie && (
+          <div style={{ ...mono, fontSize: 11.5, fontWeight: 700, color: C.ocra, marginTop: 7, lineHeight: 1.45 }}>
+            Caricate {giorni} giorni fa, quasi certamente sono di una giornata passata.
+            Conviene che l'amministratore ricarichi la pagina.
+          </div>
+        )}
+      </div>
+
+      {/* legenda, tre fasce e due evidenziazioni */}
+      <div className="flex gap-2 flex-wrap items-center" style={{ ...mono, fontSize: 10, color: C.inchiostroTenue, margin: "10px 0 2px", textTransform: "uppercase", letterSpacing: ".08em" }}>
+        <span style={{ color: C.campo, fontWeight: 700 }}>titolare da 80</span>
+        <span style={{ color: C.ocra, fontWeight: 700 }}>ballottaggio da 45</span>
+        <span>riserva sotto 45</span>
+        <span style={{ marginLeft: "auto" }}>fondo verde già tuo, fondo rosa da prendere</span>
+      </div>
+
+      <div className="flex gap-2 flex-wrap" style={{ alignItems: "flex-start" }}>
+        {probabili.squadre.map((sq) => (
+          <div key={sq.nome} style={{ flex: "1 1 250px", background: "#fff", border: `1px solid ${C.riga}`, borderRadius: 3, marginTop: 8 }}>
+            <div className="flex items-baseline justify-between gap-2"
+              style={{ borderBottom: `2px solid ${C.inchiostro}`, padding: "7px 9px" }}>
+              <span style={{ fontSize: 15, fontWeight: 800 }}>{sq.nome}</span>
+              <span style={{ ...mono, fontSize: 12, fontWeight: 700, color: C.rosa }}>{sq.modulo}</span>
+            </div>
+            <div style={{ ...mono, fontSize: 9, color: C.inchiostroTenue, textTransform: "uppercase", letterSpacing: ".1em", padding: "6px 9px 2px" }}>
+              undici titolari
+            </div>
+            {sq.giocatori.filter((g) => g.titolare).map(voce)}
+            <div style={{ ...mono, fontSize: 9, color: C.inchiostroTenue, textTransform: "uppercase", letterSpacing: ".1em", padding: "8px 9px 2px" }}>
+              panchina
+            </div>
+            {sq.giocatori.filter((g) => !g.titolare).map(voce)}
+          </div>
+        ))}
+      </div>
+
+      <div style={{ ...mono, fontSize: 10.5, color: C.inchiostroTenue, marginTop: 12, lineHeight: 1.5 }}>
+        Il pallino ° accanto a un nome vuol dire che quel giocatore non sta nel listone,
+        di solito è un ragazzo appena salito in prima squadra.
+      </div>
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  GUIDA                                                              */
 /*  Le istruzioni stanno dentro l'app, cosi' il giorno dell'asta       */
 /*  non serve cercare un file da qualche altra parte.                  */
@@ -1937,12 +2262,13 @@ function Guida() {
         </div>
       </Blocco>
 
-      <Blocco titolo="Le quattro schede" sotto="a cosa serve ognuna">
+      <Blocco titolo="Le cinque schede" sotto="a cosa serve ognuna">
         <Elenco voci={[
           <><b>Listone</b>, l'elenco di tutti i giocatori. Qui ci passi le sere prima dell'asta.</>,
           <><b>Asta live</b>, da usare mentre l'asta è in corso. Segni chi prendi e a quanto.</>,
           <><b>Campo</b>, per vedere che squadra viene fuori da quello che hai comprato.</>,
           <><b>Dati</b>, le impostazioni dei campionati e il backup.</>,
+          <><b>Probabili</b>, chi gioca davvero domenica, squadra per squadra.</>,
         ]} />
       </Blocco>
 
@@ -1961,8 +2287,29 @@ function Guida() {
           <><b>Rigoristi</b> lascia in lista solo il primo e il secondo rigorista di ogni squadra e li ordina per rigori battuti, quindi è già una classifica. Non è un ruolo, è una scorciatoia. Cercando una squadra nella barra sopra vedi i suoi due.</>,
           <><b>Solo target</b> lascia chi hai messo da <b>Mi piace</b> in su, e anche chi hai semplicemente segnato per un campionato, perché anche quello è un target.</>,
           <><b>Nascondi presi</b> toglie chi è già stato assegnato nel campionato che stai guardando. Tienilo acceso durante l'asta.</>,
+          <><b>Solo titolari</b> compare quando le probabili sono state caricate, e lascia in lista solo chi è dato dall'80 per cento in su.</>,
           <><b>Ordina per priorità</b> mette in cima prima chi vuoi in tre campionati, poi in due, poi in uno. A parità viene prima chi ti interessa di più, e a parità di giudizio quello che vale di più. È l'ordine giusto per non arrivare impreparato.</>,
         ]} />
+      </Blocco>
+
+      <Blocco titolo="Probabili formazioni" sotto="chi gioca domenica">
+        Le probabili arrivano dalla pagina di Fantacalcio.it e le carica l'amministratore,
+        come il listone. Ogni giocatore ha una percentuale di titolarità, e quella percentuale
+        si legge in tre posti.
+        <Elenco voci={[
+          <>Nella scheda <b>Probabili</b>, squadra per squadra, con il modulo, gli undici e la panchina. I tuoi hanno il fondo colorato, verde se ce l'hai già, rosa se lo vuoi.</>,
+          <>Nel <b>listone</b>, come numerino accanto alla squadra.</>,
+          <>Nella <b>scheda del giocatore</b>, come pastiglia sotto il nome.</>,
+        ]} />
+        <div style={{ marginTop: 8 }}>Le tre fasce sono sempre le stesse.</div>
+        <Voce sigla="titolare">Dall'80 per cento in su. Il filtro <b>solo titolari</b> nel listone lascia in lista solo questi.</Voce>
+        <Voce sigla="ballottag.">Dal 45 al 79. Se lo compri, sappi che è un rischio.</Voce>
+        <Voce sigla="riserva">Sotto il 45.</Voce>
+        <div style={{ ...mono, fontSize: 11, color: C.inchiostroTenue, marginTop: 8, lineHeight: 1.5 }}>
+          La pagina salvata non dice quando è stata aggiornata, quindi la data che vedi in cima
+          è il momento in cui è stata caricata. Se sono passati più di sette giorni te lo dice in arancione,
+          perché a quel punto sono di una giornata vecchia.
+        </div>
       </Blocco>
 
       <Blocco titolo="La scheda del giocatore" sotto="tutti i numeri, uno per uno">
@@ -2114,7 +2461,7 @@ function Guida() {
 /*  SCHEDA GIOCATORE                                                   */
 /* ------------------------------------------------------------------ */
 
-function Scheda({ p, m, setM, leghe, statoIn, prezzoIn, liberaGiocatore, mantraAttivo, rigoristi, chiudi }) {
+function Scheda({ p, m, setM, leghe, statoIn, prezzoIn, liberaGiocatore, mantraAttivo, rigoristi, prob, chiudi }) {
   if (!p) return null;
   const mm = m(p.id);
   const [tagNuovo, setTagNuovo] = useState("");
@@ -2199,15 +2546,28 @@ function Scheda({ p, m, setM, leghe, statoIn, prezzoIn, liberaGiocatore, mantraA
             <div style={{ ...mono, fontSize: 11, color: C.inchiostroTenue, textTransform: "uppercase", letterSpacing: ".08em", marginTop: 2 }}>
               {p.squadra} · {p.r}{p.rm?.length ? ` · ${p.rm.join(" ")}` : ""}
             </div>
-            {rigoristi?.[p.id] && (
-              <div style={{
-                display: "inline-block", marginTop: 5, borderRadius: 2, padding: "2px 7px",
-                border: `1.5px solid ${C.rosa}`, color: C.rosa,
-                ...mono, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em",
-              }}>
-                {etichettaRigorista(rigoristi[p.id])} · {(p.rc || p.rcP || 0)} calciati
-              </div>
-            )}
+            <div className="flex gap-1 flex-wrap" style={{ marginTop: 5 }}>
+              {/* quanto lo danno titolare nelle probabili dell'ultima giornata */}
+              {prob && (
+                <div style={{
+                  borderRadius: 2, padding: "2px 7px",
+                  border: `1.5px solid ${COLORE_FASCIA[fasciaTitolarita(prob.perc)]}`,
+                  color: COLORE_FASCIA[fasciaTitolarita(prob.perc)],
+                  ...mono, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em",
+                }}>
+                  {fasciaTitolarita(prob.perc)} · {prob.perc}%{prob.modulo ? " · " + prob.modulo : ""}
+                </div>
+              )}
+              {rigoristi?.[p.id] && (
+                <div style={{
+                  borderRadius: 2, padding: "2px 7px",
+                  border: `1.5px solid ${C.rosa}`, color: C.rosa,
+                  ...mono, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em",
+                }}>
+                  {etichettaRigorista(rigoristi[p.id])} · {(p.rc || p.rcP || 0)} calciati
+                </div>
+              )}
+            </div>
           </div>
           <Btn piccolo onClick={chiudi}>chiudi</Btn>
         </div>

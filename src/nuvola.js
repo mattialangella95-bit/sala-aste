@@ -6,15 +6,18 @@
       leghe, formazioni e fasce, roba piccola che cambia in continuazione
    2. una riga sola chiamata __listone__, contiene l'elenco dei giocatori,
       roba grossa che cambia solo quando l'amministratore importa gli Excel
+   3. una riga sola chiamata __probabili__, contiene le probabili formazioni
+      dell'ultima giornata, la scrive solo l'amministratore
 
    Cosi' chi entra con la sua parola si porta dietro i suoi dati e
-   riceve il listone senza doverlo importare.
+   riceve listone e probabili senza doverli importare.
 ------------------------------------------------------------------ */
 
 const INDIRIZZO = "https://uovtynfxvdesunojalmy.supabase.co";
 const CHIAVE = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvdnR5bmZ4dmRlc3Vub2phbG15Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc1NjUyNDMsImV4cCI6MjEwMzE0MTI0M30.-ti8kSiVmMcuB03YVNLh8rrzUQx0NMa6MYWAgCYyj5M";
 
 export const RIGA_LISTONE = "__listone__";
+export const RIGA_PROBABILI = "__probabili__";
 
 /* in prova puntiamo altrove, nell'uso normale vale l'indirizzo qui sopra */
 const base = () => (typeof window !== "undefined" && window.NUVOLA_INDIRIZZO) || INDIRIZZO;

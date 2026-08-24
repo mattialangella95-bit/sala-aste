@@ -40,13 +40,15 @@ export function leggiProbabili(html) {
         if (!id) continue;
         const barra = voce.querySelector(".progress-bar");
         const perc = barra ? parseInt(barra.getAttribute("aria-valuenow") || "0", 10) : 0;
+        /* Nella pagina data-status vale warn su tutte e 224 le riserve, quindi
+           non dice chi e' in dubbio, dice solo che non e' tra gli undici.
+           Quel dato lo copre gia' titolare, percio' qui non lo riportiamo. */
         giocatori.push({
           id,
           nome: testo(link),
           ruolo: (voce.querySelector(".role")?.getAttribute("data-value") || "").toUpperCase(),
           perc: isNaN(perc) ? 0 : perc,
           titolare,
-          dubbio: voce.getAttribute("data-status") === "warn",
         });
       }
     }
