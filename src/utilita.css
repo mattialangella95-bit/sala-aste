@@ -34,3 +34,12 @@ input:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px soli
   padding-bottom:2px;scroll-snap-type:x proximity;overscroll-behavior-x:contain}
 .barra::-webkit-scrollbar{display:none}
 .barra>*{flex:0 0 auto;scroll-snap-align:start}
+/* Col dito la barretta non serve e resta nascosta. Col mouse invece serve,
+   altrimenti sembra che le schede siano tagliate e non che scorrano. */
+@media (hover:hover) and (pointer:fine){
+  .barra{scrollbar-width:thin;scrollbar-color:#DCC5CB transparent;padding-bottom:5px}
+  .barra::-webkit-scrollbar{display:block;height:6px}
+  .barra::-webkit-scrollbar-track{background:transparent}
+  .barra::-webkit-scrollbar-thumb{background:#DCC5CB;border-radius:3px}
+  .barra:hover::-webkit-scrollbar-thumb{background:#C4A9B1}
+}

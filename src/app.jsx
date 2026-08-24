@@ -740,6 +740,24 @@ export default function App() {
     return () => window.removeEventListener("online", alRitorno);
   }, [codice, admin, meta, aste, leghe, formazioni, mdTab, players, probabili]);
 
+  /* La fila delle schede non entra tutta quando la finestra e' stretta.
+     Col dito e col trackpad scorre gia' da sola, con la rotellina del mouse no,
+     perche' quella e' verticale. Qui la giriamo in scorrimento di lato. */
+  const barra = useRef(null);
+  useEffect(() => {
+    const n = barra.current;
+    if (!n) return;
+    const allaRotella = (e) => {
+      /* se non c'e' niente da scorrere, o se il gesto e' gia' orizzontale, non tocchiamo niente */
+      if (n.scrollWidth <= n.clientWidth) return;
+      if (!e.deltaY || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+      e.preventDefault();
+      n.scrollLeft += e.deltaY;
+    };
+    n.addEventListener("wheel", allaRotella, { passive: false });
+    return () => n.removeEventListener("wheel", allaRotella);
+  }, [pronto, daConfigurare]);
+
   /* ---------- helper stato ---------- */
   const m = (id) => meta[id] || { interesse: 0, tags: [], max: {}, note: "", leghe: {} };
   const setM = (id, patch) => setMeta((p) => ({ ...p, [id]: { ...m(id), ...patch } }));
@@ -1043,7 +1061,7 @@ export default function App() {
           })}
         </div>
 
-        <nav className="flex gap-1 mt-3 barra">
+        <nav ref={barra} className="flex gap-1 mt-3 barra">
           {[["listone", "Listone"], ["asta", "Asta live"], ["campo", "Campo"], ["probabili", "Probabili"], ["dati", "Dati"], ["guida", "Guida"]].map(([k, v]) => (
             <Btn key={k} attivo={vista === k} onClick={() => setVista(k)}>{v}</Btn>
           ))}
