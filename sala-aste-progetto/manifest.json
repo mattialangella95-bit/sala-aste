@@ -1,9 +1,0 @@
-{
-  "name": "Sala Aste",
-  "short_name": "Sala Aste",
-  "start_url": ".",
-  "display": "standalone",
-  "background_color": "#F7E9EC",
-  "theme_color": "#F7E9EC",
-  "icons": []
-}
