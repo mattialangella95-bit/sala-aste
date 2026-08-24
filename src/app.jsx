@@ -514,7 +514,7 @@ export default function App() {
   const [leghe, setLeghe] = useState(LEGHE_DEFAULT);
   const [mdTab, setMdTab] = useState(MD_DEFAULT);
   const [formazioni, setFormazioni] = useState({}); // legaId -> { modo, modulo, slots[] }
-  const [probabili, setProbabili] = useState(null);  // { giornata, squadre[], aggiornatoIl }
+  const [probabili, setProbabili] = useState(null);  // { giornata, aggiornata, squadre[], aggiornatoIl }
 
   const [vista, setVista] = useState("listone");
   const [legaAttiva, setLegaAttiva] = useState("L1");
@@ -636,7 +636,7 @@ export default function App() {
       ultimoProfilo.current = JSON.stringify({ meta: profilo?.meta || {}, aste: profilo?.aste || {}, leghe: profilo?.leghe || LEGHE_DEFAULT, formazioni: profilo?.formazioni || {}, mdTab: profilo?.mdTab || MD_DEFAULT });
       ultimoListone.current = JSON.stringify(listone?.players?.length ? listone.players : SEED);
       ultimoProbabili.current = probab?.squadre?.length
-        ? JSON.stringify({ giornata: probab.giornata || "", squadre: probab.squadre })
+        ? JSON.stringify({ giornata: probab.giornata || "", aggiornata: probab.aggiornata || "", squadre: probab.squadre })
         : "";
       setPronto(true);
     })();
@@ -694,14 +694,15 @@ export default function App() {
   const salvaProbabiliRef = useRef(null);
   useEffect(() => {
     if (!pronto || !codice || !probabili?.squadre?.length) return;
-    const dati = { giornata: probabili.giornata || "", squadre: probabili.squadre };
+    const dati = { giornata: probabili.giornata || "", aggiornata: probabili.aggiornata || "", squadre: probabili.squadre };
     const corpo = JSON.stringify(dati);
     if (corpo === ultimoProbabili.current) return;
     clearTimeout(salvaProbabiliRef.current);
     salvaProbabiliRef.current = setTimeout(async () => {
       ultimoProbabili.current = corpo;
-      /* la pagina salvata non dice quando e' stata aggiornata, quindi
-         la data buona e' il momento in cui l'abbiamo caricata */
+      /* questa e' solo la data tecnica della riga, serve alla nuvola per capire
+         quale versione e' la piu' recente. La data che si vede nell'app e'
+         un'altra, la dice la pagina di Fantacalcio.it. */
       const quando = probabili.aggiornatoIl || new Date().toISOString();
       try { await window.storage.set(CHIAVE_PROBABILI, JSON.stringify({ ...dati, aggiornatoIl: quando })); } catch (e) { /* memoria piena */ }
       if (!admin || !nuvola.nuvolaAccesa()) return;
@@ -728,7 +729,7 @@ export default function App() {
         if (admin && probabili?.squadre?.length) {
           await nuvola.scrivi(
             nuvola.RIGA_PROBABILI,
-            { giornata: probabili.giornata || "", squadre: probabili.squadre },
+            { giornata: probabili.giornata || "", aggiornata: probabili.aggiornata || "", squadre: probabili.squadre },
             probabili.aggiornatoIl || quando,
           );
         }
@@ -889,8 +890,8 @@ export default function App() {
 
   /* ---------- import delle probabili ----------
      Si parte dalla pagina di Fantacalcio.it salvata dal browser come
-     Pagina web solo HTML. Dentro non c'e' nessuna data di aggiornamento,
-     quindi la data buona e' il momento in cui la carichiamo. */
+     Pagina web solo HTML. La data e la giornata le dice la pagina stessa,
+     non le inventiamo noi. Se non ci sono, non si mostra niente. */
   async function importaProbabili(file) {
     let letto;
     try {
@@ -907,7 +908,12 @@ export default function App() {
     const tutti = letto.squadre.flatMap((sq) => sq.giocatori);
     const fuori = noti.size ? tutti.filter((g) => !noti.has(g.id)) : [];
 
-    setProbabili({ giornata: letto.giornata, squadre: letto.squadre, aggiornatoIl: new Date().toISOString() });
+    setProbabili({
+      giornata: letto.giornata,
+      aggiornata: letto.aggiornata,
+      squadre: letto.squadre,
+      aggiornatoIl: new Date().toISOString(),
+    });
 
     return {
       ok: true,
@@ -915,6 +921,7 @@ export default function App() {
       giocatori: tutti.length,
       titolari: tutti.filter((g) => g.titolare).length,
       giornata: letto.giornata,
+      aggiornata: letto.aggiornata,
       senzaListone: !noti.size,
       fuori: fuori.map((g) => `${g.nome} (${g.id})`),
     };
@@ -1872,7 +1879,7 @@ function Dati({ importaFile, importaProbabili, probabili, setProbabili, players,
           </div>
           <div style={{ ...mono, fontSize: 11, color: C.inchiostroTenue, marginTop: 4 }}>
             {probabili?.squadre?.length
-              ? `probabili di ${probabili.squadre.length} squadre, aggiornate il ${quandoLeggibile(probabili.aggiornatoIl)}`
+              ? `probabili di ${probabili.squadre.length} squadre${probabili.aggiornata ? ", aggiornate al " + quandoLeggibile(probabili.aggiornata) : ""}`
               : "probabili formazioni non ancora caricate"}
           </div>
         </div>
@@ -1923,6 +1930,7 @@ function Dati({ importaFile, importaProbabili, probabili, setProbabili, players,
             <div style={{ color: C.campo }}>
               {esitoProb.squadre} squadre e {esitoProb.giocatori} giocatori letti, {esitoProb.titolari} titolari
               {esitoProb.giornata ? `, giornata ${esitoProb.giornata}` : ""}
+              {esitoProb.aggiornata ? `, la pagina dice ${quandoLeggibile(esitoProb.aggiornata)}` : ", la pagina non dice quando è stata aggiornata"}
             </div>
             {esitoProb.senzaListone ? (
               <div style={{ color: C.ocra }}>
@@ -1941,7 +1949,7 @@ function Dati({ importaFile, importaProbabili, probabili, setProbabili, players,
 
         <div style={{ ...mono, fontSize: 11, color: C.inchiostroTenue, marginTop: 8 }}>
           {probabili?.squadre?.length
-            ? `in memoria ${probabili.squadre.length} squadre, caricate il ${quandoLeggibile(probabili.aggiornatoIl)}`
+            ? `in memoria ${probabili.squadre.length} squadre${probabili.aggiornata ? ", aggiornate al " + quandoLeggibile(probabili.aggiornata) : ""}`
             : "nessuna pagina caricata finora"}
         </div>
       </div>
@@ -2098,8 +2106,16 @@ function Probabili({ probabili, players, leghe, m, nLeghe, statoIn, setSel }) {
     );
   }
 
-  const giorni = giorniDa(probabili.aggiornatoIl);
+  /* La data la dice la pagina di Fantacalcio.it. Se in quella pagina non c'era,
+     non mostriamo nessuna data, perche' una data inventata da noi non vale niente. */
+  const giorni = giorniDa(probabili.aggiornata);
   const vecchie = giorni != null && giorni > 7;
+  const soprattitolo = probabili.aggiornata
+    ? (probabili.giornata ? `giornata ${probabili.giornata}, aggiornate al` : "aggiornate al")
+    : "probabili formazioni";
+  const titolo = probabili.aggiornata
+    ? quandoLeggibile(probabili.aggiornata)
+    : (probabili.giornata ? `Giornata ${probabili.giornata}` : "Probabili formazioni");
 
   /* quanti dei tuoi sono dati titolari, e' il motivo per cui guardi questa scheda */
   const miei = [];
@@ -2140,18 +2156,18 @@ function Probabili({ probabili, players, leghe, m, nLeghe, statoIn, setSel }) {
       {/* testata, la data e la giornata sono la prima cosa da guardare */}
       <div style={{ background: C.inchiostro, color: C.carta, borderRadius: 3, padding: "13px 15px" }}>
         <div style={{ ...mono, fontSize: 10, textTransform: "uppercase", letterSpacing: ".14em", opacity: .7 }}>
-          probabili formazioni{probabili.giornata ? `, giornata ${probabili.giornata}` : ""}
+          {soprattitolo}
         </div>
         <div style={{ fontSize: 25, fontWeight: 800, letterSpacing: "-.03em", lineHeight: 1.15, marginTop: 4 }}>
-          {quandoLeggibile(probabili.aggiornatoIl) || "data sconosciuta"}
+          {titolo}
         </div>
         <div style={{ ...mono, fontSize: 11, marginTop: 6, opacity: .85 }}>
           {probabili.squadre.length} squadre · {mieiTitolari} dei tuoi dati titolari su {miei.length} segnati
         </div>
         {vecchie && (
           <div style={{ ...mono, fontSize: 11.5, fontWeight: 700, color: C.ocra, marginTop: 7, lineHeight: 1.45 }}>
-            Caricate {giorni} giorni fa, quasi certamente sono di una giornata passata.
-            Conviene che l'amministratore ricarichi la pagina.
+            Fantacalcio.it le ha aggiornate {giorni} giorni fa, quasi certamente sono di una
+            giornata passata. Conviene che l'amministratore ricarichi la pagina.
           </div>
         )}
       </div>
@@ -2306,9 +2322,10 @@ function Guida() {
         <Voce sigla="ballottag.">Dal 45 al 79. Se lo compri, sappi che è un rischio.</Voce>
         <Voce sigla="riserva">Sotto il 45.</Voce>
         <div style={{ ...mono, fontSize: 11, color: C.inchiostroTenue, marginTop: 8, lineHeight: 1.5 }}>
-          La pagina salvata non dice quando è stata aggiornata, quindi la data che vedi in cima
-          è il momento in cui è stata caricata. Se sono passati più di sette giorni te lo dice in arancione,
-          perché a quel punto sono di una giornata vecchia.
+          La data e la giornata che vedi in cima le dice la pagina di Fantacalcio.it, sono le sue,
+          non il momento in cui il file è stato caricato. Se in quella pagina non ci fossero,
+          l'app non mostra nessuna data. Se l'ultimo aggiornamento è di più di sette giorni fa
+          te lo dice in arancione, perché a quel punto sono di una giornata vecchia.
         </div>
       </Blocco>
 

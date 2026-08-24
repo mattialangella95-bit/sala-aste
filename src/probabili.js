@@ -18,11 +18,29 @@ const idDalLink = (href) => {
 
 const testo = (nodo) => (nodo ? nodo.textContent.trim() : "");
 
+/* La data la dice la pagina stessa. Sotto ogni partita c'e' un
+   "Ultimo aggiornamento" nel formato 24/08/2026 - 19:55, dieci in tutto.
+   Quella buona e' la piu' recente. Se non ce n'e' nessuna torniamo stringa
+   vuota, e allora nell'app non si mostra nessuna data. */
+function dataFonte(doc) {
+  let migliore = null;
+  for (const nodo of doc.querySelectorAll(".last-update .date")) {
+    const m = testo(nodo).match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\D+(\d{1,2}):(\d{2})/);
+    if (!m) continue;
+    const quando = new Date(+m[3], +m[2] - 1, +m[1], +m[4], +m[5]);
+    if (!isNaN(quando.getTime()) && (!migliore || quando > migliore)) migliore = quando;
+  }
+  return migliore ? migliore.toISOString() : "";
+}
+
 export function leggiProbabili(html) {
   const doc = new DOMParser().parseFromString(html, "text/html");
 
   /* la giornata sta nei riquadri delle partite, prendiamo la prima che troviamo */
   const giornata = testo(doc.querySelector(".matchweek")).replace(/\D+/g, "") || "";
+
+  /* quando la fonte dice di essere stata aggiornata l'ultima volta */
+  const aggiornata = dataFonte(doc);
 
   const squadre = [];
   for (const carta of doc.querySelectorAll(".team-card")) {
@@ -55,7 +73,7 @@ export function leggiProbabili(html) {
     if (giocatori.length) squadre.push({ nome, modulo, giocatori });
   }
 
-  return { giornata, squadre };
+  return { giornata, aggiornata, squadre };
 }
 
 /* Da elenco di squadre a mappa Id -> dati, comoda per il listone e la scheda.
