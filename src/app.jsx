@@ -1037,7 +1037,7 @@ export default function App() {
         </div>
 
         <nav className="flex gap-1 mt-3 barra">
-          {[["listone", "Listone"], ["asta", "Asta live"], ["campo", "Campo"], ["dati", "Dati"], ["probabili", "Probabili"], ["guida", "Guida"]].map(([k, v]) => (
+          {[["listone", "Listone"], ["asta", "Asta live"], ["campo", "Campo"], ["probabili", "Probabili"], ["dati", "Dati"], ["guida", "Guida"]].map(([k, v]) => (
             <Btn key={k} attivo={vista === k} onClick={() => setVista(k)}>{v}</Btn>
           ))}
         </nav>
@@ -2267,8 +2267,8 @@ function Guida() {
           <><b>Listone</b>, l'elenco di tutti i giocatori. Qui ci passi le sere prima dell'asta.</>,
           <><b>Asta live</b>, da usare mentre l'asta è in corso. Segni chi prendi e a quanto.</>,
           <><b>Campo</b>, per vedere che squadra viene fuori da quello che hai comprato.</>,
-          <><b>Dati</b>, le impostazioni dei campionati e il backup.</>,
           <><b>Probabili</b>, chi gioca davvero domenica, squadra per squadra.</>,
+          <><b>Dati</b>, le impostazioni dei campionati e il backup.</>,
         ]} />
       </Blocco>
 
