@@ -410,7 +410,9 @@ function Listino({ mantraAttivo, leghe }) {
       quote {mantraAttivo ? "mantra" : "classic"}
       {!mantraAttivo && haMantra && (
         <span style={{ textTransform: "none", letterSpacing: 0, color: C.inchiostroTenue }}>
-          {", per le mantra scegli un campionato mantra"}
+          {", per le mantra metti la "}
+          <b style={{ color: C.rosa }}>★</b>
+          {" su un campionato mantra"}
         </span>
       )}
     </span>
