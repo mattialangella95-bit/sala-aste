@@ -1743,7 +1743,7 @@ function Papabili({ players, m, setM, leghe, legaAttiva, legheScelte, setLegheSc
 /* ------------------------------------------------------------------ */
 
 function AstaLive(props) {
-  const { mantraAttivo, lista, q, setQ, filtroRuolo, setFiltroRuolo, leghe, lega, legaAttiva, m, nLeghe, statoIn, prezzoIn, assegnaGiocatore, liberaGiocatore, asta, speso, players, setSel, rivaliDi, aggiungiRivale } = props;
+  const { mantraAttivo, q, setQ, filtroRuolo, setFiltroRuolo, leghe, lega, legaAttiva, m, nLeghe, statoIn, prezzoIn, assegnaGiocatore, liberaGiocatore, asta, speso, players, setSel, rivaliDi, aggiungiRivale } = props;
   const [target, setTarget] = useState(null);
   const [prezzo, setPrezzo] = useState("");
   /* quando dici che l'ha preso un altro, chiediamo di chi e' */
@@ -1758,11 +1758,6 @@ function AstaLive(props) {
   const a = asta(legaAttiva);
   const residuo = L.budget - speso(legaAttiva);
   const rosaCorrente = asta(rosaLega).rosa;
-  /* A ricerca vuota mostriamo tutti i tuoi obiettivi ancora liberi, cioe' chi hai
-     giudicato da Mi piace in su oppure segnato per un campionato. Sono gia' in ordine
-     di priorita', perche' lista arriva ordinata. */
-  const soloObiettivi = lista.filter((p) => m(p.id).interesse >= 3 || nLeghe(p.id) > 0);
-
   const perRuolo = RUOLI_C.map((r) => ({
     r,
     presi: a.rosa.filter((x) => players.find((p) => p.id === x.id)?.r === r).length,
@@ -1778,6 +1773,32 @@ function AstaLive(props) {
     .filter((p) => statoIn(p.id, legaAttiva) !== "libero")
     .filter((p) => (p.nome || "").toLowerCase().includes(cercato) || (p.squadra || "").toLowerCase().includes(cercato))
     .slice(0, 12);
+
+  /* La lista qui dentro se la fa l'asta. Prima si appoggiava a quella del Listone,
+     e cosi' si portava dietro filtri che in questa scheda non si vedono, tipo solo
+     target o solo titolari, piu' l'ordinamento scelto la' dentro. Qui contano solo
+     la ricerca e i tasti dei ruoli, che sono gli unici due comandi a vista. */
+  const disponibili = useMemo(() => {
+    const voluto = (p) => (m(p.id).leghe?.[legaAttiva] ? 1 : 0);
+    return players
+      .filter((p) => statoIn(p.id, legaAttiva) === "libero")
+      .filter((p) => filtroRuolo === "TUTTI" || p.r === filtroRuolo)
+      .filter((p) => !cercato
+        || (p.nome || "").toLowerCase().includes(cercato)
+        || (p.squadra || "").toLowerCase().includes(cercato))
+      /* prima chi hai segnato per questa asta, poi chi ti piace di piu', poi chi vale di piu' */
+      .sort((a, b) =>
+        voluto(b) - voluto(a) ||
+        (m(b.id).interesse || 0) - (m(a.id).interesse || 0) ||
+        valoreDi(b, mantraAttivo) - valoreDi(a, mantraAttivo) ||
+        (a.nome || "").localeCompare(b.nome || ""));
+  }, [players, legaAttiva, filtroRuolo, cercato, m, statoIn, mantraAttivo]);
+
+  /* Obiettivi di questa asta, cioe' chi hai segnato proprio per questo campionato
+     oppure chi ti piace da Mi piace in su, che vale per tutti i campionati. */
+  const obiettivi = disponibili.filter((p) => m(p.id).leghe?.[legaAttiva] || m(p.id).interesse >= 3);
+  const idObiettivi = new Set(obiettivi.map((p) => p.id));
+  const altri = disponibili.filter((p) => !idObiettivi.has(p.id)).slice(0, 40);
 
   const rivali = rivaliDi(legaAttiva);
 
@@ -1907,23 +1928,53 @@ function AstaLive(props) {
 
           {bloccoRose}
 
-          {/* A ricerca vuota non srotoliamo il listone intero, qui si va di ricerca.
-              Restano tutti i tuoi obiettivi ancora liberi, che e' quello che serve. */}
-          {!cercato && (
-            <div style={{ ...mono, fontSize: 10.5, color: C.inchiostroTenue, margin: "14px 0 4px", textTransform: "uppercase", letterSpacing: ".1em" }}>
-              {soloObiettivi.length ? "i tuoi obiettivi ancora liberi" : "i primi del listone"}
+          {/* Cercando, una lista sola coi risultati. A ricerca vuota due elenchi,
+              prima i tuoi obiettivi e poi, sotto, i primi del listone, cosi' se un
+              giocatore non te l'eri segnato lo trovi lo stesso senza cercarlo. */}
+          {cercato ? (
+            <div style={{ background: "#fff", border: `1px solid ${C.riga}`, borderRadius: 3, marginTop: 8 }}>
+              {disponibili.slice(0, 40).map((p) => (
+                <Riga key={p.id} p={p} {...props} compatta onApri={() => { setTarget(p); setPrezzo(String(m(p.id).max?.[legaAttiva] || "")); }} />
+              ))}
+              {!disponibili.length && (
+                <div style={{ padding: 16, textAlign: "center", ...mono, fontSize: 11.5, color: C.inchiostroTenue }}>
+                  Nessuno con questo nome tra i liberi. Se l'hai già segnato lo trovi qui sotto.
+                </div>
+              )}
             </div>
+          ) : (
+            <>
+              {obiettivi.length > 0 && (
+                <>
+                  <div style={{ ...mono, fontSize: 10.5, color: C.inchiostroTenue, margin: "14px 0 4px", textTransform: "uppercase", letterSpacing: ".1em" }}>
+                    i tuoi obiettivi ancora liberi in {L.nome}, {obiettivi.length}
+                  </div>
+                  <div style={{ background: "#fff", border: `1px solid ${C.riga}`, borderRadius: 3 }}>
+                    {obiettivi.map((p) => (
+                      <Riga key={p.id} p={p} {...props} compatta onApri={() => { setTarget(p); setPrezzo(String(m(p.id).max?.[legaAttiva] || "")); }} />
+                    ))}
+                  </div>
+                </>
+              )}
+              {altri.length > 0 && (
+                <>
+                  <div style={{ ...mono, fontSize: 10.5, color: C.inchiostroTenue, margin: "14px 0 4px", textTransform: "uppercase", letterSpacing: ".1em" }}>
+                    i primi del listone
+                  </div>
+                  <div style={{ background: "#fff", border: `1px solid ${C.riga}`, borderRadius: 3 }}>
+                    {altri.map((p) => (
+                      <Riga key={p.id} p={p} {...props} compatta onApri={() => { setTarget(p); setPrezzo(String(m(p.id).max?.[legaAttiva] || "")); }} />
+                    ))}
+                  </div>
+                </>
+              )}
+              {!disponibili.length && (
+                <div style={{ background: "#fff", border: `1px solid ${C.riga}`, borderRadius: 3, padding: 16, textAlign: "center", ...mono, fontSize: 11.5, color: C.inchiostroTenue, marginTop: 14 }}>
+                  Nessun giocatore libero con questo ruolo
+                </div>
+              )}
+            </>
           )}
-          <div style={{ background: "#fff", border: `1px solid ${C.riga}`, borderRadius: 3, marginTop: cercato ? 8 : 0 }}>
-            {(cercato ? lista.slice(0, 40) : (soloObiettivi.length ? soloObiettivi : lista.slice(0, 40))).map((p) => (
-              <Riga key={p.id} p={p} {...props} compatta onApri={() => { setTarget(p); setPrezzo(String(m(p.id).max?.[legaAttiva] || "")); }} />
-            ))}
-            {!lista.length && (
-              <div style={{ padding: 16, textAlign: "center", ...mono, fontSize: 11.5, color: C.inchiostroTenue }}>
-                Nessuno con questo nome. Se l'hai già segnato lo trovi qui sotto.
-              </div>
-            )}
-          </div>
 
           {/* Chi e' gia' stato assegnato non compare qui sopra, perche' l'elenco
               nasconde i presi. Se hai sbagliato a segnare devi poterlo ritrovare,
@@ -3382,7 +3433,8 @@ function Guida() {
         <Elenco voci={[
           <>In alto trovi i <b>crediti residui</b> e l'<b>offerta massima</b>. La seconda è quanto puoi spingerti adesso tenendo da parte un credito per ogni casella che ti resta da riempire. Se la superi te lo dice, ma non ti blocca.</>,
           <>Scrivi il nome, tocca il giocatore, metti il prezzo finale e premi <b>preso io</b> oppure <b>a un altro</b>. La ricerca prende anche il <b>nome della squadra</b>, quindi scrivendo inter restano solo i suoi.</>,
-          <>A ricerca vuota, sotto le rose, vedi <b>tutti i tuoi obiettivi ancora liberi</b>, in ordine di priorità. Qui si va di ricerca, il listone intero sta nella sua scheda.</>,
+          <>A ricerca vuota, sotto le rose, vedi due elenchi. Prima <b>i tuoi obiettivi ancora liberi</b> per questa asta, cioè chi hai segnato per questo campionato o giudicato da <b>Mi piace</b> in su. Sotto, <b>i primi del listone</b>, così un giocatore che non ti eri segnato lo trovi lo stesso.</>,
+          <>I due elenchi rispondono solo alla <b>ricerca</b> e ai <b>tasti dei ruoli</b> qui sopra. I filtri e l'ordinamento del Listone non arrivano qui, altrimenti ti ritroveresti la lista tagliata da qualcosa che non vedi.</>,
           <>Segnare anche gli acquisti degli avversari conviene. Ti fa capire a che prezzi sta girando l'asta e libera la lista da chi non puoi più prendere.</>,
           <>Se lo volevi anche in un altro campionato compare un <b>riquadro rosa</b> che te lo ricorda. Vuol dire che pagandolo caro qui, là dovrai rinunciare a qualcosa.</>,
           <>Sotto ci sono <b>le tue rose</b>, divise per ruolo, con quanto hai speso su ciascuno. Accanto a ognuno il tasto <b>−</b> annulla l'acquisto.</>,
