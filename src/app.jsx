@@ -3268,108 +3268,146 @@ function Guida() {
       <div style={{ background: C.inchiostro, color: C.carta, borderRadius: 3, padding: "13px 15px" }}>
         <div style={{ fontSize: 19, fontWeight: 800, letterSpacing: "-.03em" }}>Cos'è Sala Aste</div>
         <div style={{ fontSize: 13.5, lineHeight: 1.5, marginTop: 6, opacity: .92 }}>
-          Un quaderno per preparare e vivere l'asta del fantacalcio. I giocatori sono già dentro,
-          con quotazioni e statistiche aggiornate. Tu ci aggiungi la cosa che nessun sito può darti,
-          cioè cosa ne pensi tu, e durante l'asta lui tiene il conto al posto tuo.
+          Un quaderno per preparare e vivere l'asta del fantacalcio. I giocatori sono già dentro
+          con quotazioni e statistiche. Tu ci aggiungi la cosa che nessun sito può darti, cioè
+          cosa ne pensi tu, e durante l'asta lui tiene il conto al posto tuo.
         </div>
         <div style={{ fontSize: 13.5, lineHeight: 1.5, marginTop: 8, opacity: .92 }}>
-          Se giochi più di un campionato è pensato apposta. Il giudizio su un giocatore lo dai
-          <b> una volta sola</b> e vale ovunque, mentre chi l'ha comprato e a che prezzo resta
-          <b> separato per ogni campionato</b>.
+          Il giudizio su un giocatore lo dai <b>una volta sola</b> e vale ovunque. Chi l'ha comprato
+          e a che prezzo resta <b>separato per ogni campionato</b>.
         </div>
       </div>
 
       <Blocco titolo="Da dove si comincia" sotto="la prima volta">
         <Elenco voci={[
-          <>Scrivi una <b>parola</b> a tua scelta. Non è una registrazione, non servono mail né password. Quella parola è la tua chiave, usa sempre la stessa.</>,
-          <>Ti viene chiesto <b>quante aste fai</b>, come si chiamano, quanti crediti avete e se giocate Classic o Mantra. Si cambia tutto quando vuoi, quindi non pensarci troppo.</>,
-          <>Da lì in poi entri da solo. Il tasto in alto a destra con la tua parola serve per uscire e entrare con un'altra.</>,
+          <>Scrivi una <b>parola</b> a tua scelta. Niente mail, niente password. Quella parola è la tua chiave, usa sempre la stessa e segnatela, perché nessuno può recuperarla.</>,
+          <>Ti viene chiesto quante aste fai, i crediti e se giocate Classic o Mantra. Si cambia tutto dopo, non pensarci troppo.</>,
+          <>Con la stessa parola ritrovi tutto anche da un altro dispositivo. Il tasto in alto a destra serve per uscire.</>,
         ]} />
-        <div style={{ ...mono, fontSize: 11, color: C.inchiostroTenue, marginTop: 8, lineHeight: 1.5 }}>
-          Segnati la parola da qualche parte. Senza quella non si entra, e nessuno può recuperarla per te.
-          Con la stessa parola ritrovi tutto anche da un altro dispositivo, perché i dati stanno online.
-        </div>
       </Blocco>
 
       <Blocco titolo="Le sette schede" sotto="a cosa serve ognuna">
         <Elenco voci={[
-          <><b>Listone</b>, l'elenco di tutti i giocatori. Qui ci passi le sere prima dell'asta.</>,
-          <><b>Papabili</b>, solo i giocatori che hai segnato, divisi per squadra, per sfoltire in fretta.</>,
-          <><b>Asta live</b>, da usare mentre l'asta è in corso. Segni chi prendi e a quanto.</>,
-          <><b>Aste Tracker</b>, come stanno messi gli altri. Quanto hanno speso e cosa gli manca.</>,
-          <><b>Campo</b>, per vedere che squadra viene fuori da quello che hai comprato.</>,
-          <><b>Probabili</b>, chi gioca davvero domenica, squadra per squadra.</>,
-          <><b>Dati</b>, le impostazioni dei campionati e il backup.</>,
+          <><b>Listone</b>, tutti i giocatori. Qui ci passi le sere prima dell'asta.</>,
+          <><b>Papabili</b>, solo quelli che hai segnato. La lista della spesa.</>,
+          <><b>Asta live</b>, mentre l'asta è in corso. Segni chi prendi e a quanto.</>,
+          <><b>Aste Tracker</b>, come stanno messi gli altri, crediti e caselle.</>,
+          <><b>Campo</b>, che squadra viene fuori da quello che hai comprato.</>,
+          <><b>Probabili</b>, chi gioca davvero domenica.</>,
+          <><b>Dati</b>, impostazioni, avversari e backup.</>,
+        ]} />
+      </Blocco>
+
+      <Blocco titolo="La testata" sotto="le carte dei campionati">
+        <Elenco voci={[
+          <>Ogni carta è un campionato, con crediti spesi e residui. Toccandola scegli quello su cui stai lavorando.</>,
+          <>La <b>stella</b> dice qual è il <b>principale</b>. È lui che decide se le quote che leggi sono <b>classic</b> o <b>mantra</b>, che per un giocatore su tre sono diverse. Se vuoi le quote mantra, mettici la stella.</>,
+          <>Il <b>nome</b> si cambia toccando quello del campionato con la stella, oppure dalla pennina nel pannello Dati.</>,
+          <>Solo nella scheda <b>Papabili</b> le carte accendono e spengono, quindi puoi guardarne due o tre insieme. Uscendo torna acceso uno solo.</>,
         ]} />
       </Blocco>
 
       <Blocco titolo="Listone" sotto="preparare l'asta">
         Tocca un giocatore per aprire la sua scheda. Da lì dici quanto ti interessa e in quali
-        campionati lo vuoi. Tornando indietro, la riga cambia aspetto.
+        campionati lo vuoi.
         <Elenco voci={[
           <>La <b>barretta colorata</b> a sinistra è il tuo giudizio. Più tira al rosa, più lo vuoi.</>,
-          <>I <b>quadratini numerati</b> a destra sono i tuoi campionati. Acceso vuol dire che lo vuoi lì. Puoi accenderli anche da qui senza aprire la scheda.</>,
-          <>Se la riga ha lo <b>sfondo rosato</b> lo vuoi in due o più campionati. Quelli sono i contesi, e sono i primi da guardare quando fai i conti col budget.</>,
-          <>I due numeri a destra sono la <b>quota</b> e il <b>fvm</b>, spiegati qui sotto.</>,
+          <>I <b>quadratini numerati</b> a destra sono i tuoi campionati, e si accendono anche da qui. Lo <b>sfondo rosato</b> vuol dire che lo vuoi in due o più, quindi è un conteso.</>,
+          <>A destra <b>quota</b> e <b>fvm</b>, spiegati più sotto. Accanto al conteggio dei giocatori c'è scritto se sono quote classic o mantra.</>,
         ]} />
-        <div style={{ marginTop: 9, fontWeight: 600 }}>I filtri sotto la ricerca</div>
+        <div style={{ marginTop: 9, fontWeight: 600 }}>Filtri e ordinamenti</div>
         <Elenco voci={[
-          <><b>P D C A</b> mostrano un ruolo alla volta.</>,
-          <><b>Rigoristi</b> lascia in lista solo il primo e il secondo rigorista di ogni squadra e li ordina per rigori battuti, quindi è già una classifica. Non è un ruolo, è una scorciatoia. Cercando una squadra nella barra sopra vedi i suoi due.</>,
-          <><b>Solo target</b> lascia chi hai messo da <b>Mi piace</b> in su, e anche chi hai semplicemente segnato per un campionato, perché anche quello è un target.</>,
-          <><b>Nascondi presi</b> toglie chi è già stato assegnato nel campionato che stai guardando. Tienilo acceso durante l'asta.</>,
-          <><b>Solo titolari</b> compare quando le probabili sono state caricate, e lascia in lista solo chi è dato dall'80 per cento in su.</>,
-          <><b>Ordina per priorità</b> mette in cima prima chi vuoi in tre campionati, poi in due, poi in uno. A parità viene prima chi ti interessa di più, e a parità di giudizio quello che vale di più. È l'ordine giusto per non arrivare impreparato.</>,
+          <><b>P D C A</b> un ruolo alla volta. <b>Rigoristi</b> lascia il primo e il secondo di ogni squadra, già ordinati per rigori battuti.</>,
+          <><b>Solo target</b> tiene chi hai messo da Mi piace in su e chi hai segnato per un campionato. <b>Nascondi presi</b> toglie chi è già stato assegnato. <b>Solo titolari</b> compare con le probabili caricate e tiene chi è dall'80 per cento in su.</>,
+          <><b>Priorità</b> mette in cima chi vuoi nel maggior numero di campionati, poi a scendere. A parità viene prima chi ti interessa di più e poi chi vale di più.</>,
+          <>Gli altri ordinamenti sono <b>quota</b>, <b>fvm</b>, <b>fantamedia</b> e <b>nome</b>. Col filtro rigoristi spariscono, perché lì l'ordine è fisso.</>,
         ]} />
       </Blocco>
 
       <Blocco titolo="Papabili" sotto="la tua lista della spesa">
-        Qui non c'è tutto il listone. Ci sono <b>solo i giocatori che hai segnato</b>, cioè quelli
-        col quadratino numerato acceso nel Listone. In cima ci sono due file di tasti che decidono
-        cosa vedi.
+        Solo i giocatori che hai segnato, cioè quelli col quadratino acceso nel Listone.
         <Elenco voci={[
-          <>I campionati si accendono e si spengono <b>dalle carte in testata</b>, quelle con i crediti. Solo in questa scheda puoi tenerne accesi <b>più di uno</b>, e escono i segnati di tutti quelli accesi in una lista sola. In tutte le altre schede resta acceso uno solo, come sempre.</>,
-          <>Il tasto <b>tutti</b> è la scorciatoia per accenderli in un colpo, e ripremendolo torni a uno solo. Accanto c'è scritto quali sono accesi in quel momento.</>,
-          <>Sotto ci sono gli stessi <b>filtri del Listone</b>, cioè la ricerca per nome e i tasti dei ruoli.</>,
-          <>L'<b>ordinamento</b> parte per ruolo, cioè portieri, difensori, centrocampisti e attaccanti, e a parità di ruolo viene prima chi costa di più. Poi ci sono squadra, quota, fvm, titolarità e nome. <b>Squadra</b> è quello di prima, che tiene insieme i giocatori della stessa squadra.</>,
-          <>La fila <b>squadre</b> filtra per squadra di serie A, e accanto a ogni nome c'è quanti ne hai segnati. <b>Da spente vogliono dire tutte</b>, ed è così che si parte. Accendine due o tre se vuoi confrontarle.</>,
-          <>Uscendo da questa scheda la testata torna da sola a un campionato solo, quindi non ti ritrovi selezioni strane nel Listone o in Asta live.</>,
+          <>I campionati si accendono <b>dalle carte in testata</b>, e qui puoi tenerne accesi più di uno. Il tasto <b>tutti</b> li accende in un colpo.</>,
+          <>La fila <b>squadre</b> filtra per squadra di serie A, col numero dei tuoi segnati accanto. <b>Da spente vogliono dire tutte</b>, ed è così che si parte.</>,
+          <>Ci sono ricerca, tasti dei ruoli e <b>ordinamento</b> per ruolo, squadra, quota, fvm, titolarità o nome.</>,
         ]} />
-        <div style={{ marginTop: 9, fontWeight: 600 }}>Cosa c'è su ogni riga</div>
+        <div style={{ marginTop: 9, fontWeight: 600 }}>Ogni riga</div>
         <Elenco voci={[
-          <>Nome, squadra, ruoli, la <b>percentuale</b> delle probabili e i rigori, come nel listone.</>,
-          <>Sotto, i <b>cinque giudizi</b>. Un tocco lo metti, ritoccando quello acceso lo togli.</>,
-          <>Sotto ancora, <b>tutte le etichette e le note</b> che gli hai messo, in chiaro, senza aprire niente. Sono la ragione per cui te l'eri segnato, quindi devono stare a vista.</>,
-          <>A destra quota e fvm, e poi <b>una riga per ogni campionato acceso</b>, col numero davanti. Dice il max che ti sei dato oppure, se l'hai già comprato, a quanto è andato.</>,
-          <>Toccando il <b>nome</b> si apre la scheda completa, con quotazioni e statistiche.</>,
+          <>Nome, squadra, ruoli, percentuale delle probabili e rigori. Sotto i <b>cinque giudizi</b>, un tocco lo metti e ritoccandolo lo togli.</>,
+          <>Sotto ancora, <b>tutte le etichette e le note</b> in chiaro, senza aprire niente. Sono la ragione per cui te l'eri segnato.</>,
+          <>A destra quota, fvm e una riga <b>per ogni campionato acceso</b>, col numero davanti, che dice il max oppure a quanto è andato.</>,
+          <>La <b>freccetta</b> apre la scheda lì dentro, con tutte le aste, le etichette e le note. In fondo i tasti <b>meno</b>, uno per campionato acceso, che lo tolgono da quello e basta.</>,
         ]} />
-        <div style={{ marginTop: 9, fontWeight: 600 }}>La freccetta</div>
-        <div>
-          Apre la scheda del giocatore lì dentro, senza cambiare pagina. Trovi <b>tutte le aste</b>,
-          non solo quelle accese, con la spunta e il max di ognuna, poi le etichette e le note da
-          cambiare. In fondo ci sono i tasti <b>meno</b>, uno per ogni campionato acceso in cui l'hai
-          segnato. Ognuno lo toglie da quel campionato e basta, gli altri restano e il giudizio resta.
+      </Blocco>
+
+      <Blocco titolo="Asta live" sotto="il giorno dell'asta">
+        <Elenco voci={[
+          <>In alto <b>crediti residui</b> e <b>offerta massima</b>. La seconda è quanto puoi spingerti tenendo un credito per ogni casella che ti resta. Se la superi te lo dice, ma non ti blocca.</>,
+          <>Scrivi il nome, tocca il giocatore, metti il prezzo e premi <b>preso io</b> oppure <b>a un altro</b>. La ricerca prende anche il nome della squadra.</>,
+          <>Premendo <b>a un altro</b> ti chiede sempre <b>di chi è</b>, con un tasto per ogni avversario e quanto gli resta. Se non ne hai ancora registrato nessuno te lo dice, e li scrivi lì al volo. Se non vuoi saperlo c'è <b>non so chi</b>.</>,
+          <>A ricerca vuota escono due elenchi. Prima <b>i tuoi obiettivi ancora liberi</b> in questa asta, cioè chi hai segnato per questo campionato o giudicato da Mi piace in su. Sotto, <b>i primi del listone</b>.</>,
+          <>I due elenchi rispondono solo alla ricerca e ai tasti dei ruoli qui sopra. I filtri del Listone non arrivano qui.</>,
+          <>Sotto ci sono <b>le tue rose</b>, divise per ruolo, richiudibili. Coi tastini dei nomi <b>sbirci la rosa di un'altra lega</b> senza cambiare l'asta che stai facendo.</>,
+          <><b>Se hai segnato per sbaglio</b>, riscrivi il nome nella ricerca. Ricompare più sotto in <b>già assegnati</b>, col tasto <b>−</b> che lo rimette libero e ti ridà i crediti.</>,
+          <>Se lo volevi anche altrove compare un <b>riquadro rosa</b>. Vuol dire che pagandolo caro qui, là dovrai rinunciare a qualcosa.</>,
+        ]} />
+      </Blocco>
+
+      <Blocco titolo="Aste Tracker" sotto="come stanno messi gli altri">
+        All'asta conta soprattutto <b>quanto è rimasto agli altri</b> e quali caselle hanno riempito,
+        perché è quello che decide se su un giocatore ci sarà battaglia.
+        <Elenco voci={[
+          <>Prima scrivi i nomi degli avversari nel pannello <b>Dati</b>, riquadro <b>Gli altri della lega</b>. Una volta sola.</>,
+          <>Poi, ogni volta che segni un giocatore preso da un altro, dici di chi è. È l'unico lavoro in più.</>,
+          <>Qui trovi una scheda per ognuno, la tua per prima col bordo verde, con crediti residui, spesi e le <b>quattro caselle dei ruoli</b>. Quando un ruolo è pieno il numero diventa verde, ed è lì che quello smette di fare battaglia.</>,
+          <><b>Chi ha preso</b> si apre e elenca i suoi giocatori col prezzo. Quelli segnati senza dire di chi finiscono nel mucchio <b>presi da non so chi</b>.</>,
+        ]} />
+        <div style={{ ...mono, fontSize: 11, color: C.inchiostroTenue, marginTop: 8, lineHeight: 1.5 }}>
+          I crediti che restano a ognuno sono il budget meno quello che gli hai visto spendere,
+          quindi valgono se sei stato preciso nel segnare gli acquisti degli altri.
         </div>
       </Blocco>
 
-      <Blocco titolo="Probabili formazioni" sotto="chi gioca domenica">
-        Le probabili arrivano dalla pagina di Fantacalcio.it e le carica l'amministratore,
-        come il listone. Ogni giocatore ha una percentuale di titolarità, e quella percentuale
-        si legge in tre posti.
+      <Blocco titolo="Campo" sotto="che squadra è venuta fuori">
         <Elenco voci={[
-          <>Nella scheda <b>Probabili</b>, squadra per squadra, con il modulo, gli undici e la panchina. I tuoi hanno il fondo colorato, verde se ce l'hai già, rosa se lo vuoi.</>,
-          <>Nel <b>listone</b>, come numerino accanto alla squadra.</>,
-          <>Nella <b>scheda del giocatore</b>, come pastiglia sotto il nome.</>,
+          <>Scegli il <b>modulo</b>. <b>Automatica</b> schiera i migliori e mette solo chi è nel suo ruolo esatto. <b>A mano</b> ti lascia decidere, trascinando oppure toccando il giocatore e poi la casella.</>,
+          <>Trascinando, il <b>bordo verde</b> è la casella giusta, l'<b>arancio</b> vuol dire adattato e ti costa un punto, <b>nessun bordo</b> vuol dire che lì non ci può stare.</>,
+          <><b>Fantapunti stimati</b> è quanto farebbe questa formazione in una giornata media.</>,
         ]} />
-        <div style={{ marginTop: 8 }}>Le tre fasce sono sempre le stesse.</div>
-        <Voce sigla="titolare">Dall'80 per cento in su. Il filtro <b>solo titolari</b> nel listone lascia in lista solo questi.</Voce>
+        <div style={{ marginTop: 9, fontWeight: 600 }}>Simulazione preasta</div>
+        <div style={{ marginBottom: 6 }}>
+          Prima dell'asta la rosa è vuota. Accendendo la <b>simulazione</b> entrano anche i giocatori
+          che hai giudicato, come se li avessi già presi, e vedi che squadra verrebbe fuori.
+        </div>
+        <Elenco voci={[
+          <>Scegli quali giudizi far entrare. Dai soli <b>Must have</b> vedi lo scheletro, aggiungendo gli altri capisci dove ti manca gente.</>,
+          <>I simulati hanno il <b>bordo tratteggiato</b>. I crediti non vengono toccati, è solo una prova.</>,
+          <><b>Solo questo campionato</b> tiene dentro solo chi hai segnato per la lega che stai guardando.</>,
+        ]} />
+        <div style={{ marginTop: 9, fontWeight: 600 }}>Copertura e bonus difensivo</div>
+        <Elenco voci={[
+          <>Le pastiglie dicono, per ogni casella del modulo, quanti giocatori ci starebbero. <b>Bordo rosso</b> sei scoperto, <b>arancio</b> ci arrivi esatto senza riserve, <b>chiaro</b> hai margine.</>,
+          <>Se una casella resta vuota, il riquadro arancione ti dice quale e cosa puoi farci.</>,
+          <>Il <b>bonus difensivo</b> si accende da solo quando ci sono le condizioni, e quando è spento dice cosa manca. In Classic servono il portiere e quattro difensori, in Mantra cinque di stampo difensivo di cui almeno tre puri.</>,
+        ]} />
+      </Blocco>
+
+      <Blocco titolo="Probabili formazioni" sotto="chi gioca domenica">
+        Le carica l'amministratore dalla pagina di Fantacalcio.it, come il listone. Ogni giocatore
+        ha una percentuale di titolarità, e la trovi nella scheda <b>Probabili</b>, nel <b>listone</b>,
+        in <b>Papabili</b> e nella <b>scheda del giocatore</b>.
+        <div style={{ marginTop: 8 }}>Le tre fasce.</div>
+        <Voce sigla="titolare">Dall'80 in su. È quello che tiene il filtro <b>solo titolari</b>.</Voce>
         <Voce sigla="ballottag.">Dal 45 al 79. Se lo compri, sappi che è un rischio.</Voce>
         <Voce sigla="riserva">Sotto il 45.</Voce>
+        <div style={{ marginTop: 8 }}>
+          Nella scheda Probabili le squadre escono <b>nell'ordine delle partite</b>, quindi le due che
+          si affrontano stanno una sotto l'altra. I tuoi hanno il fondo colorato, verde se ce l'hai
+          già, rosa se lo vuoi, e in cima c'è scritto quanti dei tuoi sono dati titolari.
+        </div>
         <div style={{ ...mono, fontSize: 11, color: C.inchiostroTenue, marginTop: 8, lineHeight: 1.5 }}>
-          La data e la giornata che vedi in cima le dice la pagina di Fantacalcio.it, sono le sue,
-          non il momento in cui il file è stato caricato. Se in quella pagina non ci fossero,
-          l'app non mostra nessuna data. Se l'ultimo aggiornamento è di più di sette giorni fa
-          te lo dice in arancione, perché a quel punto sono di una giornata vecchia.
+          La data e la giornata le dice la pagina di Fantacalcio.it, non il momento in cui il file
+          è stato caricato. Se l'aggiornamento è di più di sette giorni fa te lo dice in arancione.
         </div>
       </Blocco>
 
@@ -3377,28 +3415,23 @@ function Guida() {
         <div style={{ fontWeight: 600, marginBottom: 6 }}>Il riquadro del mercato</div>
         <Voce sigla="quota">Il prezzo di listino di oggi. È la base d'asta, non quello che pagherai.</Voce>
         <Voce sigla="iniziale">Il prezzo di listino a inizio stagione.</Voce>
-        <Voce sigla="diff">Di quanto si è mosso. Un più grosso vuol dire che sta rendendo bene, e che all'asta ci sarà battaglia.</Voce>
-        <Voce sigla="fvm">Fanta Valore di Mercato. <b>Non sono crediti.</b> È quanto vale davvero secondo Fantacalcio.it, tenendo dentro rendimento, continuità e ruolo. Va da 1 a 370.</Voce>
+        <Voce sigla="diff">Di quanto si è mosso. Un più grosso vuol dire che sta rendendo, e che ci sarà battaglia.</Voce>
+        <Voce sigla="fvm">Fanta Valore di Mercato. <b>Non sono crediti.</b> È quanto vale davvero secondo Fantacalcio.it. Va da 1 a 370.</Voce>
 
-        <div style={{ fontWeight: 600, margin: "12px 0 6px" }}>Le due strisce delle stagioni</div>
-        <div style={{ marginBottom: 7 }}>Sopra c'è l'anno che state giocando, sotto quello scorso. A campionato appena partito la prima è quasi vuota, quindi guarda la seconda.</div>
-        <Voce sigla="pres">Partite con voto. Non partite giocate, quelle in cui ha giocato abbastanza da prendere un voto. È il primo indizio sulla titolarità.</Voce>
+        <div style={{ fontWeight: 600, margin: "12px 0 6px" }}>Le due stagioni</div>
+        <div style={{ marginBottom: 7 }}>Sopra l'anno in corso, sotto quello scorso. A campionato appena partito guarda la seconda.</div>
+        <Voce sigla="pres">Partite con voto, non partite giocate. È il primo indizio sulla titolarità.</Voce>
         <Voce sigla="mv">Media voto pura, senza gol né cartellini. È quella che conta per il bonus difensivo.</Voce>
-        <Voce sigla="fm">Fantamedia, la media voto con dentro gol, assist, ammonizioni e tutto il resto. È quella che dice quanti punti ti porta a settimana.</Voce>
-        <Voce sigla="gol">Gol fatti.</Voce>
-        <Voce sigla="assist">Assist serviti.</Voce>
+        <Voce sigla="fm">Fantamedia, con dentro gol, assist e cartellini. Dice quanti punti ti porta a settimana.</Voce>
         <div style={{ marginTop: 8 }}>
-          Accanto alla scritta <b>stagione in corso</b> c'è <b>altri numeri</b>. Aprendolo compaiono
-          ammonizioni, espulsioni, rigori calciati e segnati, e gli autogol. Per i portieri
-          al loro posto trovi gol subiti e rigori parati. Si apre e si chiude per tutte e due le stagioni insieme.
+          <b>Altri numeri</b> apre ammonizioni, espulsioni, rigori e autogol, per tutte e due le stagioni insieme.
+          Per i portieri al loro posto ci sono gol subiti e rigori parati.
         </div>
 
         <div style={{ fontWeight: 600, margin: "12px 0 6px" }}>Rigorista</div>
         <div style={{ marginBottom: 8 }}>
-          Sotto il nome, quando c'è, compare una pastiglia rosa che dice <b>rigorista</b> oppure
-          <b> 2° rigorista</b>, con quanti ne ha battuti. Non è un dato scritto negli Excel, si ricava
-          contando i rigori calciati dentro ogni squadra, prima quelli di quest'anno e poi quelli dell'anno scorso.
-          Nel listone la stessa cosa compare come <b>rig 1</b> o <b>rig 2</b> accanto alla squadra.
+          La pastiglia rosa sotto il nome. Non è un dato degli Excel, si ricava contando i rigori
+          calciati dentro ogni squadra, prima quest'anno e poi l'anno scorso. Nel listone è <b>rig 1</b> o <b>rig 2</b>.
         </div>
 
         <div style={{ fontWeight: 600, margin: "12px 0 6px" }}>Quanto mi interessa</div>
@@ -3408,99 +3441,22 @@ function Guida() {
           ))}
         </div>
         <Elenco voci={[
-          <><b>Evita</b>, non lo vuoi a nessun prezzo. Serve per non ripensarci in asta alle due di notte.</>,
-          <><b>Ripiego</b>, va bene se avanza budget o se resti scoperto in un ruolo.</>,
-          <><b>Mi piace</b>, lo prenderesti volentieri al prezzo giusto.</>,
-          <><b>Obiettivo</b>, su questo ti spingi, vale la pena rilanciare.</>,
-          <><b>Must have</b>, l'asta la fai per lui.</>,
-        ]} />
-        <div style={{ ...mono, fontSize: 11, color: C.inchiostroTenue, marginTop: 6, lineHeight: 1.5 }}>
-          Il giudizio è uno solo e vale in tutti i campionati, perché un giocatore o ti piace o no.
-        </div>
-
-        <div style={{ fontWeight: 600, margin: "12px 0 6px" }}>In quali aste lo voglio</div>
-        <Elenco voci={[
-          <>La <b>spunta</b> dice che lo vuoi in quel campionato.</>,
-          <>Il campo <b>max</b> è il tetto che ti dai per quel campionato. Riappare in asta accanto al prezzo, come promemoria di quello che avevi deciso da lucido.</>,
-          <>Dopo l'asta la riga dice <b>tuo a 34</b> oppure <b>preso a 34</b>, e il tasto <b>−</b> accanto annulla l'acquisto se hai sbagliato a segnare, solo per quel campionato.</>,
+          <><b>Evita</b>, non lo vuoi a nessun prezzo. <b>Ripiego</b>, va bene se avanza budget.</>,
+          <><b>Mi piace</b>, lo prenderesti al prezzo giusto. <b>Obiettivo</b>, vale la pena rilanciare. <b>Must have</b>, l'asta la fai per lui.</>,
+          <>Il giudizio è uno solo e vale in tutti i campionati, perché un giocatore o ti piace o no.</>,
         ]} />
 
-        <div style={{ fontWeight: 600, margin: "12px 0 6px" }}>Etichette e note</div>
-        <div>Le etichette sono parole brevi da appiccicare in un tocco, tipo rigorista o rischio infortuni, e puoi crearne di nuove. Le note sono testo libero, il posto giusto per scrivere <b>perché</b> avevi deciso una cosa.</div>
-      </Blocco>
-
-      <Blocco titolo="Asta live" sotto="il giorno dell'asta">
+        <div style={{ fontWeight: 600, margin: "12px 0 6px" }}>Aste, etichette e note</div>
         <Elenco voci={[
-          <>In alto trovi i <b>crediti residui</b> e l'<b>offerta massima</b>. La seconda è quanto puoi spingerti adesso tenendo da parte un credito per ogni casella che ti resta da riempire. Se la superi te lo dice, ma non ti blocca.</>,
-          <>Scrivi il nome, tocca il giocatore, metti il prezzo finale e premi <b>preso io</b> oppure <b>a un altro</b>. La ricerca prende anche il <b>nome della squadra</b>, quindi scrivendo inter restano solo i suoi.</>,
-          <>A ricerca vuota, sotto le rose, vedi due elenchi. Prima <b>i tuoi obiettivi ancora liberi</b> per questa asta, cioè chi hai segnato per questo campionato o giudicato da <b>Mi piace</b> in su. Sotto, <b>i primi del listone</b>, così un giocatore che non ti eri segnato lo trovi lo stesso.</>,
-          <>I due elenchi rispondono solo alla <b>ricerca</b> e ai <b>tasti dei ruoli</b> qui sopra. I filtri e l'ordinamento del Listone non arrivano qui, altrimenti ti ritroveresti la lista tagliata da qualcosa che non vedi.</>,
-          <>Segnare anche gli acquisti degli avversari conviene. Ti fa capire a che prezzi sta girando l'asta e libera la lista da chi non puoi più prendere.</>,
-          <>Se lo volevi anche in un altro campionato compare un <b>riquadro rosa</b> che te lo ricorda. Vuol dire che pagandolo caro qui, là dovrai rinunciare a qualcosa.</>,
-          <>Sotto ci sono <b>le tue rose</b>, divise per ruolo, con quanto hai speso su ciascuno. Accanto a ognuno il tasto <b>−</b> annulla l'acquisto.</>,
-          <>La riga <b>le tue rose</b> si richiude toccandola, così mentre cerchi un giocatore lo spazio resta alla ricerca.</>,
-          <>Se giochi più di un campionato, i tastini con i nomi ti fanno <b>sbirciare la rosa di un'altra lega</b> senza uscire dall'asta che stai facendo. Serve per ricordarti cosa hai già preso altrove prima di rilanciare.</>,
-          <><b>Se hai segnato per sbaglio</b>, riscrivi il suo nome nella barra della ricerca. L'elenco normale nasconde chi è già stato assegnato, quindi ricompare più sotto, nel riquadro <b>già assegnati</b>, con il tasto <b>−</b>. Vale anche per quelli comprati dagli altri.</>,
-          <>Il meno lo rimette libero e ti ridà i crediti, e tocca solo il campionato che stai guardando.</>,
-          <>Premendo <b>a un altro</b> ti viene sempre chiesto <b>di chi è</b>, con un tasto per ogni squadra avversaria e accanto quanto le resta. Se per quel campionato non ne hai ancora registrata nessuna te lo dice, e le scrivi lì al volo. Se non hai voglia di saperlo c'è <b>non so chi</b>.</>,
+          <>La <b>spunta</b> dice che lo vuoi in quel campionato. Il <b>max</b> è il tetto che ti dai, e riappare in asta come promemoria di quello che avevi deciso da lucido.</>,
+          <>Le <b>etichette</b> sono parole brevi da appiccicare in un tocco, e puoi crearne di nuove. Le <b>note</b> sono il posto per scrivere <b>perché</b> avevi deciso una cosa.</>,
         ]} />
-      </Blocco>
-
-      <Blocco titolo="Aste Tracker" sotto="come stanno messi gli altri">
-        All'asta non conta solo quanto hai speso tu. Conta soprattutto <b>quanto è rimasto agli altri</b>
-        e quali caselle hanno già riempito, perché è quello che decide se su un giocatore ci sarà
-        battaglia oppure lo prendi a due crediti.
-        <Elenco voci={[
-          <>Prima scrivi i nomi delle squadre avversarie nel pannello <b>Dati</b>, riquadro <b>Gli altri della lega</b>. Una volta sola, poi restano.</>,
-          <>All'asta, ogni volta che segni un giocatore <b>preso da un altro</b>, dici di chi è. È l'unico lavoro in più che ti chiede.</>,
-          <>Qui trovi <b>una scheda per ognuno</b>, la tua per prima col bordo verde. Dice quanti crediti gli restano, quanti ne ha spesi e la barra come in testata.</>,
-          <>Sotto, le <b>quattro caselle dei ruoli</b>. Dicono quanti portieri, difensori, centrocampisti e attaccanti ha già preso su quanti gliene servono. Quando un ruolo è pieno il numero diventa verde, e quello è il momento in cui smette di fare battaglia lì.</>,
-          <><b>Chi ha preso</b> si apre e si chiude, ed elenca i suoi giocatori in ordine di ruolo, col prezzo pagato. Toccando un nome si apre la sua scheda.</>,
-          <>Chi hai segnato come preso da un altro <b>senza dire di chi</b> finisce in fondo, nel mucchio <b>presi da non so chi</b>. I prezzi restano comunque utili.</>,
-          <>Se giochi più campionati, i tastini in alto ti fanno guardare gli altri senza cambiare campionato attivo.</>,
-        ]} />
-        <div style={{ ...mono, fontSize: 11, color: C.inchiostroTenue, marginTop: 8, lineHeight: 1.5 }}>
-          Il budget è lo stesso per tutti, è quello del campionato. I crediti che restano a ognuno
-          sono il budget meno quello che gli hai visto spendere, quindi valgono se sei stato preciso
-          nel segnare gli acquisti degli altri.
-        </div>
-      </Blocco>
-
-      <Blocco titolo="Campo" sotto="che squadra è venuta fuori">
-        <Elenco voci={[
-          <>Scegli il <b>modulo</b> dalla fila di tasti. Cambiando modulo cambia tutto il resto.</>,
-          <><b>Automatica</b> schiera da sola i migliori. Mette solo chi è nel suo ruolo esatto, non forza mai nessuno.</>,
-          <><b>A mano</b> ti lascia decidere. Trascina un giocatore sulla casella, oppure toccalo e poi tocca dove metterlo.</>,
-          <>Quando trascini, il <b>bordo verde</b> vuol dire casella nel suo ruolo, il <b>bordo arancio</b> vuol dire che ci sta adattato e ti costa un punto, <b>nessun bordo</b> vuol dire che lì non ci può stare.</>,
-          <><b>Fantapunti stimati</b> è quanto farebbe questa formazione in una giornata media.</>,
-        ]} />
-        <div style={{ fontWeight: 600, margin: "12px 0 6px" }}>Simulazione preasta</div>
-        <div>Prima dell'asta la rosa è vuota e il campo non dice niente. Accendendo la <b>simulazione</b> entrano
-        anche i giocatori che hai giudicato, come se li avessi già presi, e vedi che squadra verrebbe fuori.</div>
-        <Elenco voci={[
-          <>Scegli quali giudizi far entrare, <b>Must have</b>, <b>Obiettivo</b>, <b>Mi piace</b> e <b>Ripiego</b>. Puoi accenderne quanti vuoi insieme.</>,
-          <>Partendo dai soli Must have vedi lo scheletro, aggiungendo gli altri riempi i buchi e capisci dove ti manca gente.</>,
-          <>I simulati hanno il <b>bordo tratteggiato</b>, in campo e in panchina, quindi non li confondi con quelli veri.</>,
-          <><b>Solo questo campionato</b> tiene dentro solo chi hai segnato per la lega che stai guardando. Spegnendolo entrano tutti quelli che ti piacciono.</>,
-          <>Cambiando modulo la formazione si rifà, quindi provi in un attimo se il tuo listone regge un 3-5-2 o un 4-3-3.</>,
-          <>I crediti non vengono toccati e nessun acquisto viene registrato. È solo una prova.</>,
-        ]} />
-        <div style={{ fontWeight: 600, margin: "12px 0 6px" }}>Copertura dei ruoli</div>
-        <div>La fila di pastiglie dice, per ogni tipo di casella del modulo, quanti giocatori della tua rosa ci starebbero.</div>
-        <Elenco voci={[
-          <><b>Bordo rosso</b>, non ne hai abbastanza. Sei scoperto lì.</>,
-          <><b>Bordo arancio</b>, ci arrivi esatto senza riserve. Un infortunio e sei fuori.</>,
-          <><b>Bordo chiaro</b>, hai margine.</>,
-        ]} />
-        <div style={{ marginTop: 7 }}>Se una casella resta vuota, il riquadro arancione sopra <b>ti dice quale</b> e cosa puoi farci, se qualcuno dalla panchina la coprirebbe oppure se quel ruolo ti manca proprio e va comprato.</div>
-        <div style={{ fontWeight: 600, margin: "12px 0 6px" }}>Bonus difensivo</div>
-        <div>Si accende da solo quando la formazione ha le condizioni giuste, e quando è spento ti dice cosa manca. In Classic serve il portiere e almeno quattro difensori, in Mantra servono cinque uomini di stampo difensivo di cui almeno tre puri.</div>
       </Blocco>
 
       <Blocco titolo="Legenda dei ruoli" sotto="le sigle che trovi ovunque">
         <div style={{ marginBottom: 8 }}>
-          Come si riconoscono a colpo d'occhio. Il ruolo <b>Classic</b> è un <b>quadratino pieno colorato</b>,
-          uno solo per giocatore. I ruoli <b>Mantra</b> sono <b>pastiglie vuote col bordo</b>, e possono essere più d'uno.
+          Il ruolo <b>Classic</b> è un quadratino pieno colorato, uno solo per giocatore.
+          I ruoli <b>Mantra</b> sono pastiglie vuote col bordo, e possono essere più d'uno.
         </div>
         <div className="flex gap-1 items-center flex-wrap" style={{ marginBottom: 10 }}>
           {RUOLI_C.map((r) => <RuoloC key={r} r={r} grande />)}
@@ -3508,9 +3464,8 @@ function Guida() {
           <RuoliM rm={["Dc", "E", "T"]} grande />
           <span style={{ ...mono, fontSize: 11, color: C.inchiostroTenue, marginLeft: 6 }}>mantra</span>
         </div>
-        <div style={{ marginBottom: 8 }}>In <b>Classic</b> i ruoli sono quattro, e ognuno ha il suo colore.</div>
         <Voce sigla="P D C A">Portiere, difensore, centrocampista, attaccante.</Voce>
-        <div style={{ margin: "12px 0 8px" }}>In <b>Mantra</b> sono dodici e un giocatore può averne più di uno. Sono quelli che decidono in quali caselle del modulo può entrare.</div>
+        <div style={{ margin: "12px 0 8px" }}>In <b>Mantra</b> sono dodici e decidono in quali caselle del modulo può entrare.</div>
         <Voce sigla="Por">Portiere</Voce>
         <Voce sigla="Dc">Difensore centrale</Voce>
         <Voce sigla="Dd">Difensore destro</Voce>
@@ -3525,29 +3480,28 @@ function Guida() {
         <Voce sigla="Pc">Punta centrale</Voce>
         <div style={{ ...mono, fontSize: 11, color: C.inchiostroTenue, marginTop: 8, lineHeight: 1.5 }}>
           In Mantra le quotazioni sono diverse da quelle Classic per circa un giocatore su tre.
-          L'app se ne accorge da sola e ti mostra sempre quelle giuste per il campionato che stai guardando.
+          Quelle che vedi sono sempre del campionato con la stella, e accanto al conteggio dei
+          giocatori c'è scritto quali sono.
         </div>
       </Blocco>
 
       <Blocco titolo="Dati" sotto="impostazioni">
         <Elenco voci={[
-          <>Quando l'amministratore ricarica le <b>quotazioni</b> della stagione in corso, il listone viene riallineato a quel file. Chi ha lasciato la serie A sparisce, così non resta in giro con la squadra dell'anno prima.</>,
-          <>I <b>campionati</b> si aggiungono col più e si tolgono col meno, da uno a sei. Crediti e regolamento si cambiano quando vuoi, anche a asta iniziata. Il nome si cambia con la <b>pennina</b> accanto a ognuno.</>,
-          <>Il nome si cambia anche <b>dalla testata</b>. Tocca il nome del campionato principale, quello con la stella, e diventa scrivibile. Chiamali come si chiamano davvero, è più facile che Campionato 1 e Campionato 2.</>,
-          <>La <b>stella</b> dice qual è il campionato principale. È quello che decide se le quote che leggi sono classic o mantra, quindi se hai un campionato mantra e vuoi le sue quote, mettici la stella.</>,
-          <><b>Gli altri della lega</b> sono i nomi delle squadre con cui giochi, uno per riga e separati per campionato. Servono all'asta e alla scheda Aste Tracker. Togliendone una i suoi acquisti restano, ma finiscono tra quelli presi da non so chi.</>,
-          <>Le <b>fasce del bonus difensivo</b> sono quelle ufficiali, ma quanti punti valgono lo decide ogni lega. Mettici i vostri.</>,
-          <>Il <b>backup</b> scarica un file con tutto il tuo lavoro. Non serve per passare da un dispositivo all'altro, quello funziona da solo, ma è una rete di sicurezza che non costa niente.</>,
-          <>In fondo ci sono i tasti per <b>azzerare</b> gli acquisti o i giudizi. Chiedono conferma, ma non si torna indietro.</>,
+          <>Quando l'amministratore ricarica le <b>quotazioni</b> della stagione in corso, il listone viene riallineato a quel file. Chi ha lasciato la serie A sparisce.</>,
+          <>I <b>campionati</b> si aggiungono col più e si tolgono col meno, da uno a sei. Crediti e regolamento si cambiano quando vuoi, il nome con la <b>pennina</b>.</>,
+          <><b>Gli altri della lega</b> sono i nomi delle squadre con cui giochi, separati per campionato. Servono all'asta e all'Aste Tracker, e il tasto <b>togli</b> li elimina. I loro acquisti restano, ma finiscono tra quelli presi da non so chi.</>,
+          <>Le <b>fasce del bonus difensivo</b> sono quelle ufficiali, ma i punti li decide la vostra lega.</>,
+          <>Il <b>backup</b> scarica un file con tutto il tuo lavoro. <b>Ripristina backup</b> fa il contrario e <b>sostituisce quello che c'è adesso</b>, quindi serve solo se il browser ha cancellato i dati o se vuoi tornare indietro.</>,
+          <>In fondo i tasti per <b>azzerare</b> acquisti o giudizi. Chiedono conferma, ma non si torna indietro.</>,
         ]} />
       </Blocco>
 
       <Blocco titolo="Se qualcosa non torna" sotto="prima di preoccuparti">
         <Elenco voci={[
-          <>In alto a destra c'è una scritta piccola che dice sempre come sta andando. <b>Nuvola collegata</b> vuol dire tutto a posto, <b>salvato</b> con l'ora vuol dire che ha appena registrato quello che hai fatto.</>,
-          <>Se dice <b>senza rete, lavoro qui</b> non hai perso niente. Continui a lavorare normalmente e appena la linea torna spedisce tutto da solo.</>,
-          <>Non vedi una cosa che avevi fatto da un altro dispositivo, ricarica la pagina. All'apertura va a prendere la versione più recente.</>,
-          <>Su iPhone e iPad conviene aggiungere il sito alla schermata Home. Tasto condividi, poi Aggiungi a Home, e si comporta come un'app.</>,
+          <>In alto a destra una scritta piccola dice come sta andando. Sono tante, tipo <b>salvato</b> con l'ora o <b>listone pubblicato</b>, e sono tutte normali.</>,
+          <>Le uniche da guardare sono quelle <b>arancioni</b>, che vogliono dire che qualcosa non è ancora partito. Anche lì non devi fare niente, riprova da solo appena torna la linea.</>,
+          <>Non vedi una cosa fatta da un altro dispositivo, ricarica la pagina. All'apertura va a prendere la versione più recente.</>,
+          <>Su iPhone e iPad conviene aggiungere il sito alla schermata Home. Tasto condividi, poi Aggiungi a Home.</>,
         ]} />
       </Blocco>
 
