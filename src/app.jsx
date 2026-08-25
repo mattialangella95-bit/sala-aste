@@ -803,6 +803,15 @@ export default function App() {
     if (vista !== "papabili") setLegheScelte([legaAttiva]);
   }, [vista, legaAttiva]);
 
+  /* Il campionato principale e' quello che decide le quote, classic oppure
+     mantra, e vale anche per le altre schede. Si sceglie con la stella. */
+  function scegliPrincipale(lid) {
+    setLegaAttiva(lid);
+    /* se lo eleggi da Papabili mentre era spento, lo accendiamo, altrimenti
+       comanderebbe le quote un campionato che non stai neanche guardando */
+    if (vista === "papabili" && !legheScelte.includes(lid)) setLegheScelte([...legheScelte, lid]);
+  }
+
   /* Il tocco sulle carte dei campionati. Nelle altre schede sceglie e basta,
      in Papabili accende e spegne, cosi' se ne guardano due o tre insieme. */
   function toccaLega(lid) {
@@ -1116,16 +1125,28 @@ export default function App() {
                     />
                   ) : (
                     <span className="flex items-baseline gap-1 min-w-0" style={{ flex: 1 }}>
-                      <span style={{ fontSize: 12.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{l.nome}</span>
-                      {/* la matita compare solo sul campionato principale */}
-                      {l.id === legaAttiva && (
-                        <button
-                          title={"rinomina " + l.nome}
-                          onClick={(e) => { e.stopPropagation(); setRinomina(l.id); }}
-                          style={{ fontSize: 11, lineHeight: 1, color: C.inchiostroTenue, padding: "0 2px", opacity: .75 }}>
-                          ✎
-                        </button>
-                      )}
+                      {/* la stella dice qual e' il principale, e sugli altri serve per eleggerlo */}
+                      <button
+                        title={l.id === legaAttiva
+                          ? "campionato principale, decide se le quote sono classic o mantra"
+                          : "scegli " + l.nome + " come campionato principale"}
+                        onClick={(e) => { e.stopPropagation(); scegliPrincipale(l.id); }}
+                        style={{ fontSize: 12, lineHeight: 1, padding: "0 1px", flex: "0 0 auto",
+                          color: l.id === legaAttiva ? C.rosa : C.inchiostroTenue,
+                          opacity: l.id === legaAttiva ? 1 : .5 }}>
+                        {l.id === legaAttiva ? "★" : "☆"}
+                      </button>
+                      {/* Il nome si rinomina toccandolo, ma solo sul campionato principale.
+                          Sugli altri il tocco deve restare quello della carta, cioe' sceglierlo,
+                          altrimenti chi vuole cambiare campionato si ritrova a scrivere il nome. */}
+                      <span
+                        title={l.id === legaAttiva ? "tocca il nome per rinominare " + l.nome : l.nome}
+                        onClick={(e) => { if (l.id !== legaAttiva) return; e.stopPropagation(); setRinomina(l.id); }}
+                        style={{ fontSize: 12.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis",
+                          whiteSpace: "nowrap", cursor: l.id === legaAttiva ? "text" : "pointer",
+                          borderBottom: l.id === legaAttiva ? `1px dotted ${C.riga}` : "none" }}>
+                        {l.nome}
+                      </span>
                     </span>
                   )}
                   <span style={{ ...mono, fontSize: 10, color: C.inchiostroTenue, textTransform: "uppercase" }}>
@@ -1141,6 +1162,13 @@ export default function App() {
             );
           })}
         </div>
+
+        {leghe.length > 1 && (
+          <div style={{ ...mono, fontSize: 10, color: C.inchiostroTenue, marginTop: 5, letterSpacing: ".04em" }}>
+            <b style={{ color: C.rosa }}>★</b> campionato principale, decide se le quote sono classic o mantra
+            {vista === "papabili" ? ". Qui in Papabili puoi tenerne accesi più di uno" : ""}
+          </div>
+        )}
 
         <nav className="flex gap-1 mt-3 barra">
           {[["listone", "Listone"], ["papabili", "Papabili"], ["asta", "Asta live"], ["campo", "Campo"], ["probabili", "Probabili"], ["dati", "Dati"], ["guida", "Guida"]].map(([k, v]) => (
@@ -3044,7 +3072,8 @@ function Guida() {
         <Elenco voci={[
           <>Quando l'amministratore ricarica le <b>quotazioni</b> della stagione in corso, il listone viene riallineato a quel file. Chi ha lasciato la serie A sparisce, così non resta in giro con la squadra dell'anno prima.</>,
           <>I <b>campionati</b> si aggiungono col più e si tolgono col meno, da uno a sei. Nome, crediti e regolamento si cambiano quando vuoi, anche a asta iniziata.</>,
-          <>Il nome si cambia anche <b>dalla testata</b>, con la matitina accanto al campionato che stai guardando. Chiamali come si chiamano davvero, è più facile che Campionato 1 e Campionato 2.</>,
+          <>Il nome si cambia anche <b>dalla testata</b>. Tocca il nome del campionato principale, quello con la stella, e diventa scrivibile. Chiamali come si chiamano davvero, è più facile che Campionato 1 e Campionato 2.</>,
+          <>La <b>stella</b> dice qual è il campionato principale. È quello che decide se le quote che leggi sono classic o mantra, quindi se hai un campionato mantra e vuoi le sue quote, mettici la stella.</>,
           <>Le <b>fasce del bonus difensivo</b> sono quelle ufficiali, ma quanti punti valgono lo decide ogni lega. Mettici i vostri.</>,
           <>Il <b>backup</b> scarica un file con tutto il tuo lavoro. Non serve per passare da un dispositivo all'altro, quello funziona da solo, ma è una rete di sicurezza che non costa niente.</>,
           <>In fondo ci sono i tasti per <b>azzerare</b> gli acquisti o i giudizi. Chiedono conferma, ma non si torna indietro.</>,
