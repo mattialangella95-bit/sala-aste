@@ -877,6 +877,7 @@ export default function App() {
     let ignorate = 0;
     setPlayers((prev) => {
       const mappa = new Map(prev.filter((p) => !p.seed).map((p) => [p.id, p]));
+      const visti = new Set();
       for (const r of righe) {
         const id = norm(r[cId]);
         /* Chi c'e' nel listone lo dicono le quotazioni. I file di statistiche
@@ -919,14 +920,28 @@ export default function App() {
           base.qtIM = cQtIM > -1 ? num(r[cQtIM]) : base.qtI;
           base.fvmM = cFvmM > -1 ? num(r[cFvmM]) : base.fvm;
         }
+        visti.add(id);
         mappa.set(id, base);
+      }
+      /* Le quotazioni della stagione in corso dicono chi c'e' in serie A quest'anno.
+         Chi non e' in quel file ha cambiato campionato, e se lo lasciassimo dentro
+         resterebbe per sempre con la squadra dell'anno scorso. Lo togliamo.
+         La soglia serve a non svuotare il listone per colpa di un file monco. */
+      if (!isStat && stagione !== "precedente" && righe.length >= 100) {
+        for (const id of [...mappa.keys()]) {
+          if (!visti.has(id)) mappa.delete(id);
+        }
       }
       return [...mappa.values()];
     });
     /* il conteggio degli scarti lo sapremmo solo dopo, quindi qui diciamo
        le righe lette e il totale vero lo mostra il contatore qui sotto */
     const quali = stagione === "precedente" ? ", stagione scorsa" : "";
-    return { ok: true, msg: `${righe.length} righe lette da ${file.name}${quali}` };
+    /* il conteggio dei tolti si saprebbe solo dopo, quindi diciamo la cosa
+       che e' sempre vera, cioe' che il listone e' stato riallineato a questo file */
+    const fuori = !isStat && stagione !== "precedente" && righe.length >= 100
+      ? ", listone riallineato a questo file" : "";
+    return { ok: true, msg: `${righe.length} righe lette da ${file.name}${quali}${fuori}` };
   }
 
   /* ---------- import delle probabili ----------
@@ -1085,7 +1100,7 @@ export default function App() {
         </div>
 
         <nav className="flex gap-1 mt-3 barra">
-          {[["listone", "Listone"], ["asta", "Asta live"], ["campo", "Campo"], ["probabili", "Probabili"], ["dati", "Dati"], ["guida", "Guida"]].map(([k, v]) => (
+          {[["listone", "Listone"], ["papabili", "Papabili"], ["asta", "Asta live"], ["campo", "Campo"], ["probabili", "Probabili"], ["dati", "Dati"], ["guida", "Guida"]].map(([k, v]) => (
             <Btn key={k} attivo={vista === k} onClick={() => setVista(k)}>{v}</Btn>
           ))}
         </nav>
@@ -1094,6 +1109,9 @@ export default function App() {
       <main style={{ padding: 12, paddingBottom: 90 }}>
         {vista === "listone" && (
           <Listone {...{ lista, q, setQ, filtroRuolo, setFiltroRuolo, soloInteresse, setSoloInteresse, nascondiPresi, setNascondiPresi, soloTitolari, setSoloTitolari, ordine, setOrdine, leghe, m, setM, nLeghe, statoIn, prezzoIn, legaAttiva, mantraAttivo, rigoristi, probPerId, setSel }} />
+        )}
+        {vista === "papabili" && (
+          <Papabili {...{ players, m, setM, leghe, legaAttiva, statoIn, prezzoIn, liberaGiocatore, mantraAttivo, rigoristi, probPerId, nLeghe, setSel }} />
         )}
         {vista === "asta" && (
           <AstaLive {...{ lista, q, setQ, filtroRuolo, setFiltroRuolo, leghe, lega, legaAttiva, mantraAttivo, rigoristi, probPerId, m, nLeghe, statoIn, prezzoIn, assegnaGiocatore, liberaGiocatore, asta, speso, players, setSel }} />
@@ -1241,6 +1259,232 @@ function Listone(props) {
             Nessun giocatore con questi filtri. Allarga la ricerca o importa il listone da Dati.
           </div>
         )}
+      </div>
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------
+   VISTA PAPABILI
+   Squadra per squadra, con i giudizi in chiaro sotto ogni nome.
+   Serve a fare la sgrossata prima dell'asta senza aprire una scheda
+   alla volta. Un tocco mette il giudizio, ritoccando lo stesso lo toglie.
+------------------------------------------------------------------ */
+function Papabili({ players, m, setM, leghe, legaAttiva, statoIn, prezzoIn, liberaGiocatore, mantraAttivo, rigoristi, probPerId, nLeghe, setSel }) {
+  const [squadra, setSquadra] = useState(null);
+  const [nascondiPresi, setNascondiPresi] = useState(false);
+  /* una tendina aperta alla volta, altrimenti la pagina diventa illeggibile */
+  const [aperto, setAperto] = useState(null);
+  const [tagNuovo, setTagNuovo] = useState("");
+
+  /* qui teniamo anche i giocatori di prova, come fa il listone, altrimenti
+     chi apre l'app prima dell'import trova la scheda vuota */
+  const veri = players;
+
+  /* le squadre in ordine alfabetico, con quanti ne hai gia' giudicati */
+  const squadre = useMemo(() => {
+    const o = new Map();
+    for (const p of veri) {
+      const s = p.squadra || "senza squadra";
+      if (!o.has(s)) o.set(s, { nome: s, tot: 0, fatti: 0 });
+      const v = o.get(s);
+      v.tot++;
+      if (m(p.id).interesse > 0) v.fatti++;
+    }
+    return [...o.values()].sort((a, b) => a.nome.localeCompare(b.nome));
+  }, [players, m]);
+
+  const scelta = squadra || squadre[0]?.nome || null;
+
+  const legaNome = (leghe.find((l) => l.id === legaAttiva) || {}).nome || "questo campionato";
+
+  const ordineRuolo = { P: 0, D: 1, C: 2, A: 3 };
+  const elenco = useMemo(() => veri
+    .filter((p) => (p.squadra || "senza squadra") === scelta)
+    .filter((p) => !nascondiPresi || statoIn(p.id, legaAttiva) === "libero")
+    .sort((a, b) => (ordineRuolo[a.r] ?? 9) - (ordineRuolo[b.r] ?? 9) || quotaDi(b, mantraAttivo) - quotaDi(a, mantraAttivo)),
+    [veri, scelta, nascondiPresi, legaAttiva, mantraAttivo]);
+
+  if (!veri.length) {
+    return (
+      <div style={{ background: "#fff", border: `1px solid ${C.riga}`, borderRadius: 3, padding: 20, textAlign: "center" }}>
+        <div style={{ fontSize: 15, fontWeight: 800 }}>Nessun giocatore</div>
+        <div style={{ fontSize: 13, color: C.inchiostroTenue, marginTop: 6 }}>
+          Il listone lo carica l'amministratore dal pannello Dati.
+        </div>
+      </div>
+    );
+  }
+
+  const daFare = squadre.reduce((n, s) => n + (s.tot - s.fatti), 0);
+
+  return (
+    <>
+      <div style={{ background: C.inchiostro, color: C.carta, borderRadius: 3, padding: "10px 12px" }}>
+        <div style={{ fontSize: 15, fontWeight: 800 }}>Squadra per squadra</div>
+        <div style={{ fontSize: 12.5, lineHeight: 1.45, marginTop: 4, opacity: .9 }}>
+          Tocca il giudizio sotto il nome. Ritoccando quello acceso lo togli.
+          Ti restano {daFare} giocatori senza giudizio.
+        </div>
+      </div>
+
+      {/* le venti squadre, tutte a vista */}
+      <div className="flex gap-1 flex-wrap" style={{ marginTop: 10 }}>
+        {squadre.map((s) => (
+          <Btn key={s.nome} piccolo attivo={s.nome === scelta} onClick={() => setSquadra(s.nome)}
+            title={`${s.fatti} su ${s.tot} giudicati`}>
+            {s.nome}
+            <span style={{ ...mono, fontSize: 9, marginLeft: 4, opacity: s.nome === scelta ? .8 : .55 }}>
+              {s.fatti}/{s.tot}
+            </span>
+          </Btn>
+        ))}
+      </div>
+
+      <div className="flex gap-1 items-center" style={{ margin: "10px 0 4px" }}>
+        <Btn piccolo attivo={nascondiPresi} onClick={() => setNascondiPresi(!nascondiPresi)}>nascondi presi</Btn>
+        <div style={{ flex: 1 }} />
+        <span style={{ ...mono, fontSize: 10.5, color: C.inchiostroTenue, textTransform: "uppercase", letterSpacing: ".1em" }}>
+          {elenco.length} giocatori
+        </span>
+      </div>
+
+      <div style={{ background: "#fff", border: `1px solid ${C.riga}`, borderRadius: 3 }}>
+        {!elenco.length && (
+          <div style={{ padding: 20, textAlign: "center", ...mono, fontSize: 12, color: C.inchiostroTenue }}>
+            Nessun giocatore da mostrare per {scelta}
+          </div>
+        )}
+        {elenco.map((p) => {
+          const mm = m(p.id);
+          const st = statoIn(p.id, legaAttiva);
+          const perc = percDi(probPerId, p.id);
+          return (
+            <div key={p.id} style={{ borderBottom: `1px solid ${C.riga}`, padding: "8px 8px 9px", opacity: st === "altro" ? .5 : 1 }}>
+              <div className="flex items-center gap-2">
+                <RuoloC r={p.r} />
+                <button onClick={() => setSel(p.id)} className="flex-1 text-left min-w-0">
+                  <div style={{ fontSize: 14.5, fontWeight: 700, lineHeight: 1.15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {p.nome}
+                  </div>
+                  <div style={{ ...mono, fontSize: 10, color: C.inchiostroTenue, marginTop: 1 }}>
+                    <RuoliM rm={p.rm} />
+                    {perc ? <b style={{ color: COLORE_FASCIA[fasciaTitolarita(perc)], marginLeft: 5 }}>{perc + "%"}</b> : null}
+                    {rigoristi?.[p.id] ? <b style={{ color: C.rosa, marginLeft: 5 }}>{"rig " + rigoristi[p.id]}</b> : null}
+                    {st !== "libero" ? <b style={{ color: st === "mio" ? C.campo : C.inchiostroTenue, marginLeft: 5 }}>
+                      {(st === "mio" ? "tuo" : "preso") + " a " + prezzoIn(p.id, legaAttiva)}
+                    </b> : null}
+                    {nLeghe(p.id) > 0 ? <b style={{ color: C.rosa, marginLeft: 5 }}>{"in " + nLeghe(p.id)}</b> : null}
+                  </div>
+                </button>
+                <div style={{ ...mono, fontSize: 12.5, fontWeight: 700, textAlign: "right", lineHeight: 1.25 }}>
+                  {quotaDi(p, mantraAttivo)}
+                  <div style={{ fontSize: 10, fontWeight: 400, color: C.inchiostroTenue }}>{valoreDi(p, mantraAttivo)} fvm</div>
+                  {/* il tetto che ti sei dato, solo per il campionato scelto in cima */}
+                  {mm.max?.[legaAttiva] ? (
+                    <div style={{ fontSize: 11, fontWeight: 700, color: C.rosa }}>max {mm.max[legaAttiva]}</div>
+                  ) : null}
+                  {/* il meno toglie la spunta su questo campionato, non tocca gli altri */}
+                  {mm.leghe[legaAttiva] ? (
+                    <div style={{ marginTop: 3 }}>
+                      <Btn piccolo title={"togli da " + legaNome}
+                        onClick={() => setM(p.id, { leghe: { ...mm.leghe, [legaAttiva]: false } })}>−</Btn>
+                    </div>
+                  ) : null}
+                </div>
+                <button onClick={() => { setAperto(aperto === p.id ? null : p.id); setTagNuovo(""); }}
+                  title="tutto quello che hai scritto su di lui"
+                  style={{ ...mono, fontSize: 13, color: C.inchiostroTenue, padding: "4px 6px" }}>
+                  {aperto === p.id ? "▾" : "▸"}
+                </button>
+              </div>
+
+              {/* i giudizi, in chiaro, senza aprire la scheda */}
+              <div className="flex gap-1 flex-wrap" style={{ marginTop: 6 }}>
+                {INTERESSE.filter((i) => i.k > 0).map((i) => {
+                  const on = mm.interesse === i.k;
+                  return (
+                    <button key={i.k}
+                      onClick={() => setM(p.id, { interesse: on ? 0 : i.k })}
+                      style={{
+                        ...display, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".03em",
+                        padding: "5px 9px", borderRadius: 3, border: `1.5px solid ${on ? i.col : C.riga}`,
+                        background: on ? i.col : "#fff", color: on ? "#fff" : C.inchiostroTenue,
+                      }}>
+                      {i.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* la tendina, con tutto quello che nel resto dell'app sta dentro la scheda */}
+              {aperto === p.id && (
+                <div style={{ marginTop: 8, padding: 9, background: C.cartaScura, borderRadius: 3 }}>
+                  <div style={{ ...mono, fontSize: 10, color: C.inchiostroTenue, marginBottom: 4, textTransform: "uppercase", letterSpacing: ".1em" }}>
+                    lo voglio in questa asta
+                  </div>
+                  {leghe.filter((l) => l.id === legaAttiva).map((l) => {
+                    const on = !!mm.leghe[l.id];
+                    const s2 = statoIn(p.id, l.id);
+                    return (
+                      <div key={l.id} className="flex items-center gap-2" style={{ padding: "3px 0" }}>
+                        <button onClick={() => setM(p.id, { leghe: { ...mm.leghe, [l.id]: !on } })}
+                          style={{ width: 20, height: 20, borderRadius: 2, border: `1.5px solid ${on ? C.rosa : C.riga}`, background: on ? C.rosa : "#fff", color: "#fff", fontSize: 12, fontWeight: 800, flex: "0 0 auto" }}>
+                          {on ? "\u2713" : ""}
+                        </button>
+                        <span style={{ flex: 1, fontSize: 12.5, fontWeight: 700, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{l.nome}</span>
+                        {s2 === "libero" ? (
+                          <>
+                            <span style={{ ...mono, fontSize: 10, color: C.inchiostroTenue }}>max</span>
+                            <input
+                              value={mm.max?.[l.id] || ""} inputMode="numeric"
+                              onChange={(e) => setM(p.id, { max: { ...mm.max, [l.id]: e.target.value.replace(/\D/g, "") } })}
+                              style={{ width: 48, padding: "4px", border: `1px solid ${C.riga}`, borderRadius: 2, ...mono, fontSize: 13, fontWeight: 700, textAlign: "center" }}
+                            />
+                          </>
+                        ) : (
+                          <span className="flex items-center gap-2">
+                            <span style={{ ...mono, fontSize: 11, fontWeight: 700, color: s2 === "mio" ? C.campo : C.inchiostroTenue }}>
+                              {s2 === "mio" ? "tuo" : "preso"} a {prezzoIn(p.id, l.id)}
+                            </span>
+                            <Btn piccolo title="rimuovi l'acquisto" onClick={() => liberaGiocatore(p.id, l.id)}>−</Btn>
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  <div style={{ ...mono, fontSize: 10, color: C.inchiostroTenue, margin: "10px 0 4px", textTransform: "uppercase", letterSpacing: ".1em" }}>etichette</div>
+                  <div className="flex gap-1 flex-wrap">
+                    {[...new Set([...TAG_SUGGERITI, ...(mm.tags || [])])].map((t) => {
+                      const on = (mm.tags || []).includes(t);
+                      return (
+                        <button key={t} onClick={() => setM(p.id, { tags: on ? mm.tags.filter((x) => x !== t) : [...(mm.tags || []), t] })}
+                          style={{
+                            padding: "3px 8px", borderRadius: 999, fontSize: 10.5, fontWeight: 600, ...display,
+                            border: `1px solid ${on ? C.inchiostro : C.riga}`,
+                            background: on ? C.inchiostro : "#fff", color: on ? C.carta : C.inchiostroTenue,
+                          }}>{t}</button>
+                      );
+                    })}
+                  </div>
+                  <div className="flex gap-2 mt-2">
+                    <input value={tagNuovo} onChange={(e) => setTagNuovo(e.target.value)} placeholder="Nuova etichetta"
+                      style={{ flex: 1, minWidth: 0, padding: "5px 7px", border: `1px solid ${C.riga}`, borderRadius: 2, fontSize: 12, ...display }} />
+                    <Btn piccolo onClick={() => { if (tagNuovo.trim()) { setM(p.id, { tags: [...(mm.tags || []), tagNuovo.trim()] }); setTagNuovo(""); } }}>aggiungi</Btn>
+                  </div>
+
+                  <div style={{ ...mono, fontSize: 10, color: C.inchiostroTenue, margin: "10px 0 4px", textTransform: "uppercase", letterSpacing: ".1em" }}>note</div>
+                  <textarea
+                    value={mm.note || ""} onChange={(e) => setM(p.id, { note: e.target.value })}
+                    rows={2} placeholder="Cosa ti sei detto su di lui"
+                    style={{ width: "100%", padding: 8, border: `1px solid ${C.riga}`, borderRadius: 3, fontSize: 13, ...display, resize: "vertical" }}
+                  />
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </>
   );
@@ -2433,9 +2677,10 @@ function Guida() {
         </div>
       </Blocco>
 
-      <Blocco titolo="Le cinque schede" sotto="a cosa serve ognuna">
+      <Blocco titolo="Le sei schede" sotto="a cosa serve ognuna">
         <Elenco voci={[
           <><b>Listone</b>, l'elenco di tutti i giocatori. Qui ci passi le sere prima dell'asta.</>,
+          <><b>Papabili</b>, gli stessi giocatori ma divisi per squadra, per dare i giudizi in fretta.</>,
           <><b>Asta live</b>, da usare mentre l'asta è in corso. Segni chi prendi e a quanto.</>,
           <><b>Campo</b>, per vedere che squadra viene fuori da quello che hai comprato.</>,
           <><b>Probabili</b>, chi gioca davvero domenica, squadra per squadra.</>,
@@ -2461,6 +2706,28 @@ function Guida() {
           <><b>Solo titolari</b> compare quando le probabili sono state caricate, e lascia in lista solo chi è dato dall'80 per cento in su.</>,
           <><b>Ordina per priorità</b> mette in cima prima chi vuoi in tre campionati, poi in due, poi in uno. A parità viene prima chi ti interessa di più, e a parità di giudizio quello che vale di più. È l'ordine giusto per non arrivare impreparato.</>,
         ]} />
+      </Blocco>
+
+      <Blocco titolo="Papabili" sotto="la sgrossata, squadra per squadra">
+        Il Listone serve a cercare un giocatore preciso. I <b>Papabili</b> servono a fare il giro
+        completo prima dell'asta, senza dimenticare nessuno e senza aprire una scheda alla volta.
+        <Elenco voci={[
+          <>In cima ci sono <b>tutte le squadre</b>. Accanto a ognuna un numero tipo 4 su 25, cioè quanti ne hai già giudicati. Quando arrivi in fondo hai finito quella squadra.</>,
+          <>Toccandone una, sotto escono <b>solo i suoi giocatori</b>, in ordine di ruolo e poi di quota.</>,
+          <>Sotto ogni nome ci sono i <b>cinque giudizi</b>. Un tocco lo metti, ritoccando quello acceso lo togli.</>,
+          <>Il giudizio è lo stesso di sempre, quindi quello che metti qui lo ritrovi nel Listone, nell'Asta live e nella simulazione del Campo.</>,
+          <><b>Nascondi presi</b> toglie chi è già stato assegnato nel campionato che stai guardando.</>,
+          <>Tutta la scheda parla del <b>campionato che hai scelto in cima</b>, quello col riquadro acceso. Cambiando campionato lassù cambia tutto quello che vedi qui.</>,
+          <>A destra dei numeri, in rosa, c'è il <b>max</b> che ti sei dato per quel campionato. Compare solo se l'hai messo.</>,
+          <>Sotto al max, il tasto <b>−</b> lo <b>toglie da quel campionato</b>. Compare solo se ce l'hai segnato. Gli altri campionati non li tocca.</>,
+          <>La <b>freccetta</b> a destra apre una tendina con la spunta del campionato, il suo max, le etichette e le note. È la scheda del giocatore in miniatura.</>,
+          <>Se in quel campionato è già stato comprato, al posto del max trovi il prezzo e un <b>−</b> che lo rimette libero.</>,
+          <>Toccando il <b>nome</b> si apre comunque la scheda completa, con quotazioni e statistiche.</>,
+        ]} />
+        <div style={{ ...mono, fontSize: 11, color: C.inchiostroTenue, marginTop: 8, lineHeight: 1.5 }}>
+          In cima al pannello c'è quanti giocatori ti restano senza giudizio in tutto.
+          È il modo più onesto per sapere quanto sei indietro con la preparazione.
+        </div>
       </Blocco>
 
       <Blocco titolo="Probabili formazioni" sotto="chi gioca domenica">
@@ -2620,6 +2887,7 @@ function Guida() {
 
       <Blocco titolo="Dati" sotto="impostazioni">
         <Elenco voci={[
+          <>Quando l'amministratore ricarica le <b>quotazioni</b> della stagione in corso, il listone viene riallineato a quel file. Chi ha lasciato la serie A sparisce, così non resta in giro con la squadra dell'anno prima.</>,
           <>I <b>campionati</b> si aggiungono col più e si tolgono col meno, da uno a sei. Nome, crediti e regolamento si cambiano quando vuoi, anche a asta iniziata.</>,
           <>Il nome si cambia anche <b>dalla testata</b>, con la matitina accanto al campionato che stai guardando. Chiamali come si chiamano davvero, è più facile che Campionato 1 e Campionato 2.</>,
           <>Le <b>fasce del bonus difensivo</b> sono quelle ufficiali, ma quanti punti valgono lo decide ogni lega. Mettici i vostri.</>,
