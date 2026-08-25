@@ -1213,9 +1213,19 @@ function AstaLive(props) {
   const { mantraAttivo, lista, q, setQ, filtroRuolo, setFiltroRuolo, leghe, lega, legaAttiva, m, nLeghe, statoIn, prezzoIn, assegnaGiocatore, liberaGiocatore, asta, speso, players, setSel } = props;
   const [target, setTarget] = useState(null);
   const [prezzo, setPrezzo] = useState("");
+  /* la rosa si puo' richiudere, e si puo' sbirciare quella di un altro campionato
+     senza cambiare campionato attivo, perche' all'asta serve sapere cosa hai gia' altrove */
+  const [rosaAperta, setRosaAperta] = useState(true);
+  const [rosaLega, setRosaLega] = useState(legaAttiva);
+  useEffect(() => { setRosaLega(legaAttiva); }, [legaAttiva]);
   const L = lega(legaAttiva);
   const a = asta(legaAttiva);
   const residuo = L.budget - speso(legaAttiva);
+  const rosaCorrente = asta(rosaLega).rosa;
+  /* A ricerca vuota mostriamo tutti i tuoi obiettivi ancora liberi, cioe' chi hai
+     giudicato da Mi piace in su oppure segnato per un campionato. Sono gia' in ordine
+     di priorita', perche' lista arriva ordinata. */
+  const soloObiettivi = lista.filter((p) => m(p.id).interesse >= 3 || nLeghe(p.id) > 0);
 
   const perRuolo = RUOLI_C.map((r) => ({
     r,
@@ -1241,6 +1251,68 @@ function AstaLive(props) {
   }
 
   const altreLeghe = target ? leghe.filter((l) => l.id !== legaAttiva && m(target.id).leghe[l.id]) : [];
+
+  /* Le rose stanno subito sotto la ricerca, prima dei giocatori, perche'
+     e' la prima cosa che vuoi vedere quando sei all'asta. */
+  const bloccoRose = (
+    <>
+      {/* Le rose. Quella del campionato attivo e' la prima, ma con i tastini
+        si guardano anche le altre senza uscire dall'asta. Tutto richiudibile,
+        perche' mentre cerchi un giocatore lo spazio serve alla ricerca. */}
+    <div className="flex items-center gap-2" style={{ margin: "16px 0 4px" }}>
+      <button onClick={() => setRosaAperta(!rosaAperta)}
+        style={{ ...mono, fontSize: 10.5, color: C.inchiostroTenue, textTransform: "uppercase", letterSpacing: ".1em" }}>
+        {rosaAperta ? "▾" : "▸"} le tue rose
+      </button>
+      <div style={{ flex: 1, height: 1, background: C.riga }} />
+      <span style={{ ...mono, fontSize: 10.5, color: C.inchiostroTenue }}>
+        {rosaCorrente.length} gioc. · {speso(rosaLega)} spesi
+      </span>
+    </div>
+
+    {rosaAperta && (
+      <>
+        {leghe.length > 1 && (
+          <div className="flex gap-1 flex-wrap" style={{ marginBottom: 6 }}>
+            {leghe.map((l) => (
+              <Btn key={l.id} piccolo attivo={rosaLega === l.id} onClick={() => setRosaLega(l.id)}>
+                {l.nome}
+              </Btn>
+            ))}
+          </div>
+        )}
+        <div style={{ background: "#fff", border: `1px solid ${C.riga}`, borderRadius: 3 }}>
+          {rosaCorrente.length === 0 && (
+            <div style={{ padding: 18, textAlign: "center", ...mono, fontSize: 12, color: C.inchiostroTenue }}>
+              Ancora nessun acquisto in {lega(rosaLega).nome}
+            </div>
+          )}
+          {RUOLI_C.map((r) => rosaCorrente
+            .map((x) => ({ ...x, p: players.find((pp) => pp.id === x.id) }))
+            .filter((x) => x.p?.r === r)
+            .sort((u, v) => v.prezzo - u.prezzo)
+            .map((x) => (
+              <div key={x.id} className="flex items-center gap-2" style={{ borderBottom: `1px solid ${C.riga}`, padding: "6px" }}>
+                <span style={{ ...mono, width: 16, fontSize: 12, fontWeight: 700, color: C.inchiostroTenue }}>{r}</span>
+                <button className="flex-1 text-left min-w-0" onClick={() => setSel(x.id)}
+                  style={{ fontSize: 13.5, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {x.p.nome}
+                </button>
+                <span style={{ ...mono, fontSize: 13, fontWeight: 700 }}>{x.prezzo}</span>
+                <Btn piccolo title="rimuovi l'acquisto" onClick={() => liberaGiocatore(x.id, rosaLega)}>−</Btn>
+              </div>
+            ))
+          )}
+        </div>
+        {rosaLega !== legaAttiva && (
+          <div style={{ ...mono, fontSize: 10.5, color: C.inchiostroTenue, marginTop: 5, lineHeight: 1.5 }}>
+            Stai guardando {lega(rosaLega).nome}. L'asta che stai facendo resta {L.nome}.
+          </div>
+        )}
+      </>
+    )}
+    </>
+  );
 
   return (
     <>
@@ -1278,10 +1350,25 @@ function AstaLive(props) {
               <Btn key={r} piccolo attivo={filtroRuolo === r} onClick={() => setFiltroRuolo(r)}>{r}</Btn>
             ))}
           </div>
-          <div style={{ background: "#fff", border: `1px solid ${C.riga}`, borderRadius: 3, marginTop: 8 }}>
-            {lista.slice(0, 40).map((p) => (
+
+          {bloccoRose}
+
+          {/* A ricerca vuota non srotoliamo il listone intero, qui si va di ricerca.
+              Restano tutti i tuoi obiettivi ancora liberi, che e' quello che serve. */}
+          {!cercato && (
+            <div style={{ ...mono, fontSize: 10.5, color: C.inchiostroTenue, margin: "14px 0 4px", textTransform: "uppercase", letterSpacing: ".1em" }}>
+              {soloObiettivi.length ? "i tuoi obiettivi ancora liberi" : "i primi del listone"}
+            </div>
+          )}
+          <div style={{ background: "#fff", border: `1px solid ${C.riga}`, borderRadius: 3, marginTop: cercato ? 8 : 0 }}>
+            {(cercato ? lista.slice(0, 40) : (soloObiettivi.length ? soloObiettivi : lista.slice(0, 40))).map((p) => (
               <Riga key={p.id} p={p} {...props} compatta onApri={() => { setTarget(p); setPrezzo(String(m(p.id).max?.[legaAttiva] || "")); }} />
             ))}
+            {!lista.length && (
+              <div style={{ padding: 16, textAlign: "center", ...mono, fontSize: 11.5, color: C.inchiostroTenue }}>
+                Nessuno con questo nome. Se l'hai già segnato lo trovi qui sotto.
+              </div>
+            )}
           </div>
 
           {/* Chi e' gia' stato assegnato non compare qui sopra, perche' l'elenco
@@ -1363,26 +1450,8 @@ function AstaLive(props) {
         </div>
       )}
 
-      {/* rosa corrente */}
-      <div style={{ ...mono, fontSize: 10.5, color: C.inchiostroTenue, margin: "16px 0 4px", textTransform: "uppercase", letterSpacing: ".1em" }}>
-        rosa {L.nome}
-      </div>
-      <div style={{ background: "#fff", border: `1px solid ${C.riga}`, borderRadius: 3 }}>
-        {a.rosa.length === 0 && <div style={{ padding: 18, textAlign: "center", ...mono, fontSize: 12, color: C.inchiostroTenue }}>Ancora nessun acquisto</div>}
-        {RUOLI_C.map((r) => a.rosa
-          .map((x) => ({ ...x, p: players.find((pp) => pp.id === x.id) }))
-          .filter((x) => x.p?.r === r)
-          .sort((u, v) => v.prezzo - u.prezzo)
-          .map((x) => (
-            <div key={x.id} className="flex items-center gap-2" style={{ borderBottom: `1px solid ${C.riga}`, padding: "6px" }}>
-              <span style={{ ...mono, width: 16, fontSize: 12, fontWeight: 700, color: C.inchiostroTenue }}>{r}</span>
-              <button className="flex-1 text-left" onClick={() => setSel(x.id)} style={{ fontSize: 13.5, fontWeight: 600 }}>{x.p.nome}</button>
-              <span style={{ ...mono, fontSize: 13, fontWeight: 700 }}>{x.prezzo}</span>
-              <Btn piccolo title="rimuovi l'acquisto" onClick={() => liberaGiocatore(x.id, legaAttiva)}>−</Btn>
-            </div>
-          ))
-        )}
-      </div>
+      {/* mentre metti il prezzo le rose restano sotto, servono proprio in quel momento */}
+      {target && bloccoRose}
     </>
   );
 }
@@ -2429,10 +2498,13 @@ function Guida() {
       <Blocco titolo="Asta live" sotto="il giorno dell'asta">
         <Elenco voci={[
           <>In alto trovi i <b>crediti residui</b> e l'<b>offerta massima</b>. La seconda è quanto puoi spingerti adesso tenendo da parte un credito per ogni casella che ti resta da riempire. Se la superi te lo dice, ma non ti blocca.</>,
-          <>Scrivi il nome, tocca il giocatore, metti il prezzo finale e premi <b>preso io</b> oppure <b>a un altro</b>.</>,
+          <>Scrivi il nome, tocca il giocatore, metti il prezzo finale e premi <b>preso io</b> oppure <b>a un altro</b>. La ricerca prende anche il <b>nome della squadra</b>, quindi scrivendo inter restano solo i suoi.</>,
+          <>A ricerca vuota, sotto le rose, vedi <b>tutti i tuoi obiettivi ancora liberi</b>, in ordine di priorità. Qui si va di ricerca, il listone intero sta nella sua scheda.</>,
           <>Segnare anche gli acquisti degli avversari conviene. Ti fa capire a che prezzi sta girando l'asta e libera la lista da chi non puoi più prendere.</>,
           <>Se lo volevi anche in un altro campionato compare un <b>riquadro rosa</b> che te lo ricorda. Vuol dire che pagandolo caro qui, là dovrai rinunciare a qualcosa.</>,
-          <>Sotto c'è la tua <b>rosa</b> divisa per ruolo, con quanto hai speso su ciascuno. Accanto a ognuno il tasto <b>−</b> annulla l'acquisto.</>,
+          <>Sotto ci sono <b>le tue rose</b>, divise per ruolo, con quanto hai speso su ciascuno. Accanto a ognuno il tasto <b>−</b> annulla l'acquisto.</>,
+          <>La riga <b>le tue rose</b> si richiude toccandola, così mentre cerchi un giocatore lo spazio resta alla ricerca.</>,
+          <>Se giochi più di un campionato, i tastini con i nomi ti fanno <b>sbirciare la rosa di un'altra lega</b> senza uscire dall'asta che stai facendo. Serve per ricordarti cosa hai già preso altrove prima di rilanciare.</>,
           <><b>Se hai segnato per sbaglio</b>, riscrivi il suo nome nella barra della ricerca. L'elenco normale nasconde chi è già stato assegnato, quindi ricompare più sotto, nel riquadro <b>già assegnati</b>, con il tasto <b>−</b>. Vale anche per quelli comprati dagli altri.</>,
           <>Il meno lo rimette libero e ti ridà i crediti, e tocca solo il campionato che stai guardando.</>,
         ]} />
