@@ -556,6 +556,9 @@ export default function App() {
   const [legaAttiva, setLegaAttiva] = useState("L1");
   const [sel, setSel] = useState(null);
   const [rinomina, setRinomina] = useState(null);   // id del campionato che stai rinominando dalla testata
+  /* Quali campionati sono accesi in testata. Quasi ovunque ne vale uno solo,
+     cioe' legaAttiva. Solo dentro Papabili se ne possono accendere piu' di uno. */
+  const [legheScelte, setLegheScelte] = useState(["L1"]);
 
   const [q, setQ] = useState("");
   const [filtroRuolo, setFiltroRuolo] = useState("TUTTI");
@@ -775,6 +778,25 @@ export default function App() {
     window.addEventListener("online", alRitorno);
     return () => window.removeEventListener("online", alRitorno);
   }, [codice, admin, meta, aste, leghe, formazioni, mdTab, players, probabili]);
+
+  /* Fuori da Papabili il campionato acceso e' sempre e solo uno, quindi
+     uscendo dal pannello la testata torna com'era. */
+  useEffect(() => {
+    if (vista !== "papabili") setLegheScelte([legaAttiva]);
+  }, [vista, legaAttiva]);
+
+  /* Il tocco sulle carte dei campionati. Nelle altre schede sceglie e basta,
+     in Papabili accende e spegne, cosi' se ne guardano due o tre insieme. */
+  function toccaLega(lid) {
+    if (vista !== "papabili") { setLegaAttiva(lid); return; }
+    const on = legheScelte.includes(lid);
+    const nuove = on ? legheScelte.filter((x) => x !== lid) : [...legheScelte, lid];
+    setLegheScelte(nuove);
+    /* la lega principale resta una sola, la usano le altre schede e le quotazioni Mantra */
+    if (nuove.length && !nuove.includes(legaAttiva)) {
+      setLegaAttiva(leghe.find((l) => nuove.includes(l.id)).id);
+    }
+  }
 
   /* ---------- helper stato ---------- */
   const m = (id) => meta[id] || { interesse: 0, tags: [], max: {}, note: "", leghe: {} };
@@ -1049,12 +1071,15 @@ export default function App() {
         {/* selettore lega con crediti */}
         <div className="flex gap-2 mt-3 flex-wrap">
           {leghe.map((l) => {
-            const sp = speso(l.id), att = l.id === legaAttiva;
+            const sp = speso(l.id);
+            /* in Papabili sono accesi quelli scelti, altrove solo quello attivo */
+            const att = vista === "papabili" ? legheScelte.includes(l.id) : l.id === legaAttiva;
             const inModifica = rinomina === l.id;
             return (
               <div key={l.id} role="button" tabIndex={0}
-                onClick={() => !inModifica && setLegaAttiva(l.id)}
-                onKeyDown={(e) => { if (!inModifica && (e.key === "Enter" || e.key === " ")) setLegaAttiva(l.id); }}
+                title={vista === "papabili" ? (att ? "spegni " + l.nome : "accendi " + l.nome) : l.nome}
+                onClick={() => !inModifica && toccaLega(l.id)}
+                onKeyDown={(e) => { if (!inModifica && (e.key === "Enter" || e.key === " ")) toccaLega(l.id); }}
                 style={{
                   flex: "1 1 150px", textAlign: "left", padding: "7px 9px", borderRadius: 3,
                   border: `1.5px solid ${att ? C.inchiostro : C.riga}`,
@@ -1074,8 +1099,8 @@ export default function App() {
                   ) : (
                     <span className="flex items-baseline gap-1 min-w-0" style={{ flex: 1 }}>
                       <span style={{ fontSize: 12.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{l.nome}</span>
-                      {/* la matita compare solo sul campionato che stai guardando */}
-                      {att && (
+                      {/* la matita compare solo sul campionato principale */}
+                      {l.id === legaAttiva && (
                         <button
                           title={"rinomina " + l.nome}
                           onClick={(e) => { e.stopPropagation(); setRinomina(l.id); }}
@@ -1111,7 +1136,7 @@ export default function App() {
           <Listone {...{ lista, q, setQ, filtroRuolo, setFiltroRuolo, soloInteresse, setSoloInteresse, nascondiPresi, setNascondiPresi, soloTitolari, setSoloTitolari, ordine, setOrdine, leghe, m, setM, nLeghe, statoIn, prezzoIn, legaAttiva, mantraAttivo, rigoristi, probPerId, setSel }} />
         )}
         {vista === "papabili" && (
-          <Papabili {...{ players, m, setM, leghe, legaAttiva, statoIn, prezzoIn, liberaGiocatore, mantraAttivo, rigoristi, probPerId, nLeghe, setSel }} />
+          <Papabili {...{ players, m, setM, leghe, legaAttiva, legheScelte, setLegheScelte, statoIn, prezzoIn, liberaGiocatore, mantraAttivo, rigoristi, probPerId, nLeghe, setSel }} />
         )}
         {vista === "asta" && (
           <AstaLive {...{ lista, q, setQ, filtroRuolo, setFiltroRuolo, leghe, lega, legaAttiva, mantraAttivo, rigoristi, probPerId, m, nLeghe, statoIn, prezzoIn, assegnaGiocatore, liberaGiocatore, asta, speso, players, setSel }} />
@@ -1270,19 +1295,15 @@ function Listone(props) {
    Serve a fare la sgrossata prima dell'asta senza aprire una scheda
    alla volta. Un tocco mette il giudizio, ritoccando lo stesso lo toglie.
 ------------------------------------------------------------------ */
-function Papabili({ players, m, setM, leghe, legaAttiva, statoIn, prezzoIn, liberaGiocatore, mantraAttivo, rigoristi, probPerId, nLeghe, setSel }) {
-  /* Quali campionati stiamo guardando. Si parte da quello scelto nella testata,
-     ma qui se ne possono tenere accesi due o tutti insieme. */
-  const [legheScelte, setLegheScelte] = useState([legaAttiva]);
+function Papabili({ players, m, setM, leghe, legaAttiva, legheScelte, setLegheScelte, statoIn, prezzoIn, liberaGiocatore, mantraAttivo, rigoristi, probPerId, nLeghe, setSel }) {
+  /* Quali campionati stiamo guardando lo dicono le carte in testata, che qui
+     dentro accendono e spengono invece di sceglierne una sola. */
   /* Quali squadre di serie A. Tutte spente vuol dire tutte quante, ed e' cosi' che si parte. */
   const [squadreScelte, setSquadreScelte] = useState([]);
   const [nascondiPresi, setNascondiPresi] = useState(false);
   /* una tendina aperta alla volta, altrimenti la pagina diventa illeggibile */
   const [aperto, setAperto] = useState(null);
   const [tagNuovo, setTagNuovo] = useState("");
-
-  /* se cambi campionato dalla testata, il pannello ti segue */
-  useEffect(() => { setLegheScelte([legaAttiva]); }, [legaAttiva]);
 
   /* qui teniamo anche i giocatori di prova, come fa il listone, altrimenti
      chi apre l'app prima dell'import trova la scheda vuota */
@@ -1352,33 +1373,30 @@ function Papabili({ players, m, setM, leghe, legaAttiva, statoIn, prezzoIn, libe
         <div style={{ fontSize: 15, fontWeight: 800 }}>I tuoi segnati, squadra per squadra</div>
         <div style={{ fontSize: 12.5, lineHeight: 1.45, marginTop: 4, opacity: .9 }}>
           {!legheAccese.length
-            ? "Accendi almeno un campionato qui sotto, altrimenti non c'è niente da mostrare."
+            ? "Accendi almeno un campionato dalle carte qui sopra, altrimenti non c'è niente da mostrare."
             : totSegnati === 0
               ? `Non hai ancora segnato nessuno per ${etichettaLeghe()}. Vai nel Listone e accendi il quadratino accanto ai giocatori che ti interessano.`
-              : `Hai ${totSegnati} giocatori segnati per ${etichettaLeghe()}. Le squadre spente vogliono dire tutte, e i tasti meno stanno in fondo alla tendina di ogni giocatore.`}
+              : `Hai ${totSegnati} giocatori segnati per ${etichettaLeghe()}. I campionati si accendono e si spengono dalle carte qui sopra, e solo in questa scheda puoi tenerne accesi più di uno.`}
         </div>
       </div>
 
-      {/* i tuoi campionati, uno, due o tutti insieme */}
-      <div className="flex gap-1 flex-wrap items-center" style={{ marginTop: 10 }}>
-        <span style={{ ...mono, fontSize: 10, color: C.inchiostroTenue, textTransform: "uppercase", letterSpacing: ".1em", marginRight: 2 }}>
-          campionati
-        </span>
-        <Btn piccolo attivo={tutteAccese}
-          onClick={() => setLegheScelte(tutteAccese ? [] : leghe.map((l) => l.id))}>
-          tutti
-        </Btn>
-        {leghe.map((l, i) => {
-          const on = legheScelte.includes(l.id);
-          return (
-            <Btn key={l.id} piccolo tono="rosa" attivo={on}
-              title={on ? "spegni " + l.nome : "accendi " + l.nome}
-              onClick={() => setLegheScelte(on ? legheScelte.filter((x) => x !== l.id) : [...legheScelte, l.id])}>
-              {i + 1} {l.nome}
-            </Btn>
-          );
-        })}
-      </div>
+      {/* i singoli campionati si accendono dalle carte in testata.
+          Qui resta solo la scorciatoia per accenderli tutti in un colpo. */}
+      {leghe.length > 1 && (
+        <div className="flex gap-1 flex-wrap items-center" style={{ marginTop: 10 }}>
+          <span style={{ ...mono, fontSize: 10, color: C.inchiostroTenue, textTransform: "uppercase", letterSpacing: ".1em", marginRight: 2 }}>
+            campionati
+          </span>
+          <Btn piccolo attivo={tutteAccese}
+            title={tutteAccese ? "torna a uno solo" : "accendili tutti"}
+            onClick={() => setLegheScelte(tutteAccese ? [legaAttiva] : leghe.map((l) => l.id))}>
+            tutti
+          </Btn>
+          <span style={{ ...mono, fontSize: 10, color: C.inchiostroTenue }}>
+            {legheAccese.length ? "accesi " + legheAccese.map((l) => l.nome).join(", ") : "nessuno acceso"}
+          </span>
+        </div>
+      )}
 
       {/* le venti squadre, tutte a vista. Spente vuol dire tutte */}
       <div className="flex gap-1 flex-wrap items-center" style={{ marginTop: 8 }}>
@@ -1417,7 +1435,7 @@ function Papabili({ players, m, setM, leghe, legaAttiva, statoIn, prezzoIn, libe
         {!elenco.length && (
           <div style={{ padding: 20, textAlign: "center", ...mono, fontSize: 12, color: C.inchiostroTenue }}>
             {!legheAccese.length
-              ? "Accendi un campionato qui sopra"
+              ? "Accendi un campionato dalle carte in testata"
               : squadreScelte.length
                 ? "Nessun segnato in queste squadre"
                 : "Nessun segnato per " + etichettaLeghe()}
@@ -2823,9 +2841,10 @@ function Guida() {
         col quadratino numerato acceso nel Listone. In cima ci sono due file di tasti che decidono
         cosa vedi.
         <Elenco voci={[
-          <>La fila <b>campionati</b> accende i tuoi. Puoi tenerne acceso uno, due o tutti insieme col tasto <b>tutti</b>. Escono i segnati di tutti quelli accesi, in una lista sola.</>,
+          <>I campionati si accendono e si spengono <b>dalle carte in testata</b>, quelle con i crediti. Solo in questa scheda puoi tenerne accesi <b>più di uno</b>, e escono i segnati di tutti quelli accesi in una lista sola. In tutte le altre schede resta acceso uno solo, come sempre.</>,
+          <>Il tasto <b>tutti</b> è la scorciatoia per accenderli in un colpo, e ripremendolo torni a uno solo. Accanto c'è scritto quali sono accesi in quel momento.</>,
           <>La fila <b>squadre</b> filtra per squadra di serie A, e accanto a ogni nome c'è quanti ne hai segnati. <b>Da spente vogliono dire tutte</b>, ed è così che si parte. Accendine due o tre se vuoi confrontarle.</>,
-          <>Cambiando campionato dalla testata, la fila dei campionati si rimette su quello, perché è quello che stai giocando.</>,
+          <>Uscendo da questa scheda la testata torna da sola a un campionato solo, quindi non ti ritrovi selezioni strane nel Listone o in Asta live.</>,
         ]} />
         <div style={{ marginTop: 9, fontWeight: 600 }}>Cosa c'è su ogni riga</div>
         <Elenco voci={[
