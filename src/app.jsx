@@ -1423,16 +1423,18 @@ function Papabili({ players, m, setM, leghe, legaAttiva, legheScelte, setLegheSc
   const ordineRuolo = { P: 0, D: 1, C: 2, A: 3 };
   const elenco = useMemo(() => {
     const t = cerca.trim().toLowerCase();
-    const perRuolo = (a, b) =>
-      (a.squadra || "").localeCompare(b.squadra || "") ||
-      (ordineRuolo[a.r] ?? 9) - (ordineRuolo[b.r] ?? 9) ||
-      quotaDi(b, mantraAttivo) - quotaDi(a, mantraAttivo);
+    /* A parita' si scende sempre allo stesso spareggio, prima la quota e poi il
+       nome, cosi' l'ordine e' stabile e non balla tra un ridisegno e l'altro. */
+    const perNome = (a, b) => (a.nome || "").localeCompare(b.nome || "");
+    const perQuota = (a, b) => quotaDi(b, mantraAttivo) - quotaDi(a, mantraAttivo) || perNome(a, b);
+    const perRuolo = (a, b) => (ordineRuolo[a.r] ?? 9) - (ordineRuolo[b.r] ?? 9) || perQuota(a, b);
     const come = {
       ruolo: perRuolo,
-      quota: (a, b) => quotaDi(b, mantraAttivo) - quotaDi(a, mantraAttivo),
-      fvm: (a, b) => valoreDi(b, mantraAttivo) - valoreDi(a, mantraAttivo),
-      titolarita: (a, b) => percDi(probPerId, b.id) - percDi(probPerId, a.id) || perRuolo(a, b),
-      nome: (a, b) => (a.nome || "").localeCompare(b.nome || ""),
+      squadra: (a, b) => (a.squadra || "").localeCompare(b.squadra || "") || perRuolo(a, b),
+      quota: perQuota,
+      fvm: (a, b) => valoreDi(b, mantraAttivo) - valoreDi(a, mantraAttivo) || perQuota(a, b),
+      titolarita: (a, b) => percDi(probPerId, b.id) - percDi(probPerId, a.id) || perQuota(a, b),
+      nome: perNome,
     }[ordine] || perRuolo;
     return veri
       .filter((p) => !squadreScelte.length || squadreScelte.includes(p.squadra || "senza squadra"))
@@ -1530,7 +1532,7 @@ function Papabili({ players, m, setM, leghe, legaAttiva, legheScelte, setLegheSc
       </div>
       <div className="flex gap-1 mt-1 flex-wrap items-center">
         <span style={{ ...mono, fontSize: 10, color: C.inchiostroTenue, textTransform: "uppercase" }}>ordina</span>
-        {[["ruolo", "ruolo"], ["quota", "quota"], ["fvm", "fvm"], ["titolarita", "titolarità"], ["nome", "nome"]].map(([k, v]) => (
+        {[["ruolo", "ruolo"], ["squadra", "squadra"], ["quota", "quota"], ["fvm", "fvm"], ["titolarita", "titolarità"], ["nome", "nome"]].map(([k, v]) => (
           <Btn key={k} piccolo attivo={ordine === k} onClick={() => setOrdine(k)}>{v}</Btn>
         ))}
       </div>
@@ -3257,7 +3259,8 @@ function Guida() {
         <Elenco voci={[
           <>I campionati si accendono e si spengono <b>dalle carte in testata</b>, quelle con i crediti. Solo in questa scheda puoi tenerne accesi <b>più di uno</b>, e escono i segnati di tutti quelli accesi in una lista sola. In tutte le altre schede resta acceso uno solo, come sempre.</>,
           <>Il tasto <b>tutti</b> è la scorciatoia per accenderli in un colpo, e ripremendolo torni a uno solo. Accanto c'è scritto quali sono accesi in quel momento.</>,
-          <>Sotto ci sono gli stessi <b>filtri del Listone</b>. La ricerca per nome, i tasti dei ruoli e l'ordinamento, che qui parte per ruolo e può passare a quota, fvm, titolarità o nome.</>,
+          <>Sotto ci sono gli stessi <b>filtri del Listone</b>, cioè la ricerca per nome e i tasti dei ruoli.</>,
+          <>L'<b>ordinamento</b> parte per ruolo, cioè portieri, difensori, centrocampisti e attaccanti, e a parità di ruolo viene prima chi costa di più. Poi ci sono squadra, quota, fvm, titolarità e nome. <b>Squadra</b> è quello di prima, che tiene insieme i giocatori della stessa squadra.</>,
           <>La fila <b>squadre</b> filtra per squadra di serie A, e accanto a ogni nome c'è quanti ne hai segnati. <b>Da spente vogliono dire tutte</b>, ed è così che si parte. Accendine due o tre se vuoi confrontarle.</>,
           <>Uscendo da questa scheda la testata torna da sola a un campionato solo, quindi non ti ritrovi selezioni strane nel Listone o in Asta live.</>,
         ]} />
