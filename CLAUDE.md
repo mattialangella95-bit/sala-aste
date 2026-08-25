@@ -47,8 +47,11 @@ e rispedisce al ritorno della linea.
    di una stagione passata vengono saltate, le statistiche vecchie finiscono nei campi con la P.
 4. **In Mantra le quotazioni sono altre.** `Qt.A M`, `Qt.I M`, `FVM M`. Per circa un giocatore
    su tre sono diverse da quelle Classic.
-5. **L'amministratore è un'impronta sha256**, la parola in chiaro non sta nel codice.
-6. **Niente drag and drop HTML5**, deve funzionare su Safari iPad. Si usano gli eventi pointer.
+5. **Nome, squadra e ruoli li scrive solo la stagione in corso.** Anche i file di statistiche
+   hanno le colonne `Nome Squadra R Rm`, ma quelli della stagione scorsa portano la squadra
+   vecchia. Dai file marcati come precedenti si prendono solo i numeri.
+6. **L'amministratore è un'impronta sha256**, la parola in chiaro non sta nel codice.
+7. **Niente drag and drop HTML5**, deve funzionare su Safari iPad. Si usano gli eventi pointer.
 
 ## Colonne degli Excel di Fantacalcio.it
 
