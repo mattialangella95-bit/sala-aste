@@ -740,24 +740,6 @@ export default function App() {
     return () => window.removeEventListener("online", alRitorno);
   }, [codice, admin, meta, aste, leghe, formazioni, mdTab, players, probabili]);
 
-  /* La fila delle schede non entra tutta quando la finestra e' stretta.
-     Col dito e col trackpad scorre gia' da sola, con la rotellina del mouse no,
-     perche' quella e' verticale. Qui la giriamo in scorrimento di lato. */
-  const barra = useRef(null);
-  useEffect(() => {
-    const n = barra.current;
-    if (!n) return;
-    const allaRotella = (e) => {
-      /* se non c'e' niente da scorrere, o se il gesto e' gia' orizzontale, non tocchiamo niente */
-      if (n.scrollWidth <= n.clientWidth) return;
-      if (!e.deltaY || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
-      e.preventDefault();
-      n.scrollLeft += e.deltaY;
-    };
-    n.addEventListener("wheel", allaRotella, { passive: false });
-    return () => n.removeEventListener("wheel", allaRotella);
-  }, [pronto, daConfigurare]);
-
   /* ---------- helper stato ---------- */
   const m = (id) => meta[id] || { interesse: 0, tags: [], max: {}, note: "", leghe: {} };
   const setM = (id, patch) => setMeta((p) => ({ ...p, [id]: { ...m(id), ...patch } }));
@@ -1061,7 +1043,7 @@ export default function App() {
           })}
         </div>
 
-        <nav ref={barra} className="flex gap-1 mt-3 barra">
+        <nav className="flex gap-1 mt-3 barra">
           {[["listone", "Listone"], ["asta", "Asta live"], ["campo", "Campo"], ["probabili", "Probabili"], ["dati", "Dati"], ["guida", "Guida"]].map(([k, v]) => (
             <Btn key={k} attivo={vista === k} onClick={() => setVista(k)}>{v}</Btn>
           ))}
@@ -1210,9 +1192,7 @@ function Listone(props) {
         {lista.length} giocatori
       </div>
       <div style={{ background: "#fff", border: `1px solid ${C.riga}`, borderRadius: 3 }}>
-        {/* tutti quanti, uno sotto l'altro. Il numero qui sopra e le righe disegnate
-            devono dire la stessa cosa, altrimenti sembra che la lista finisca prima */}
-        {lista.map((p) => (
+        {lista.slice(0, 300).map((p) => (
           <Riga key={p.id} p={p} {...props} onApri={() => setSel(p.id)} />
         ))}
         {!lista.length && (
@@ -1230,7 +1210,7 @@ function Listone(props) {
 /* ------------------------------------------------------------------ */
 
 function AstaLive(props) {
-  const { mantraAttivo, lista, q, setQ, filtroRuolo, setFiltroRuolo, leghe, lega, legaAttiva, m, nLeghe, statoIn, assegnaGiocatore, liberaGiocatore, asta, speso, players, setSel } = props;
+  const { mantraAttivo, lista, q, setQ, filtroRuolo, setFiltroRuolo, leghe, lega, legaAttiva, m, nLeghe, statoIn, prezzoIn, assegnaGiocatore, liberaGiocatore, asta, speso, players, setSel } = props;
   const [target, setTarget] = useState(null);
   const [prezzo, setPrezzo] = useState("");
   const L = lega(legaAttiva);
@@ -1244,6 +1224,14 @@ function AstaLive(props) {
   }));
   const slotResidui = perRuolo.reduce((s, x) => s + (x.max - x.presi), 0);
   const maxOfferta = Math.max(0, residuo - Math.max(0, slotResidui - 1));
+
+  /* Chi in questo campionato non e' piu' libero. Serve solo quando cerchi un nome,
+     perche' l'elenco normale i presi li nasconde e senza questo non si torna indietro. */
+  const cercato = q.trim().toLowerCase();
+  const gia = cercato.length < 2 ? [] : players
+    .filter((p) => statoIn(p.id, legaAttiva) !== "libero")
+    .filter((p) => (p.nome || "").toLowerCase().includes(cercato) || (p.squadra || "").toLowerCase().includes(cercato))
+    .slice(0, 12);
 
   function conferma(aChi) {
     const pz = parseInt(prezzo || "0", 10);
@@ -1295,6 +1283,39 @@ function AstaLive(props) {
               <Riga key={p.id} p={p} {...props} compatta onApri={() => { setTarget(p); setPrezzo(String(m(p.id).max?.[legaAttiva] || "")); }} />
             ))}
           </div>
+
+          {/* Chi e' gia' stato assegnato non compare qui sopra, perche' l'elenco
+              nasconde i presi. Se hai sbagliato a segnare devi poterlo ritrovare,
+              quindi cercandolo per nome ricompare qui sotto con il tasto per
+              rimetterlo libero. */}
+          {gia.length > 0 && (
+            <>
+              <div style={{ ...mono, fontSize: 10.5, color: C.inchiostroTenue, margin: "16px 0 4px", textTransform: "uppercase", letterSpacing: ".1em" }}>
+                già assegnati in {L.nome}
+              </div>
+              <div style={{ background: "#fff", border: `1px solid ${C.riga}`, borderRadius: 3 }}>
+                {gia.map((p) => {
+                  const st = statoIn(p.id, legaAttiva);
+                  return (
+                    <div key={p.id} className="flex items-center gap-2" style={{ borderBottom: `1px solid ${C.riga}`, padding: "6px" }}>
+                      <span style={{ ...mono, width: 16, fontSize: 12, fontWeight: 700, color: C.inchiostroTenue }}>{p.r}</span>
+                      <button className="flex-1 text-left min-w-0" onClick={() => setSel(p.id)}
+                        style={{ fontSize: 13.5, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {p.nome}
+                      </button>
+                      <span style={{ ...mono, fontSize: 11.5, fontWeight: 700, color: st === "mio" ? C.campo : C.inchiostroTenue }}>
+                        {st === "mio" ? "tuo" : "preso"} a {prezzoIn(p.id, legaAttiva)}
+                      </span>
+                      <Btn piccolo title="rimuovi l'acquisto" onClick={() => liberaGiocatore(p.id, legaAttiva)}>−</Btn>
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ ...mono, fontSize: 10.5, color: C.inchiostroTenue, marginTop: 5, lineHeight: 1.5 }}>
+                Il meno lo rimette libero e ti ridà i crediti. Non tocca gli altri campionati.
+              </div>
+            </>
+          )}
         </>
       ) : (
         <div style={{ marginTop: 10, background: "#fff", border: `2px solid ${C.inchiostro}`, borderRadius: 3, padding: 12 }}>
@@ -1357,7 +1378,7 @@ function AstaLive(props) {
               <span style={{ ...mono, width: 16, fontSize: 12, fontWeight: 700, color: C.inchiostroTenue }}>{r}</span>
               <button className="flex-1 text-left" onClick={() => setSel(x.id)} style={{ fontSize: 13.5, fontWeight: 600 }}>{x.p.nome}</button>
               <span style={{ ...mono, fontSize: 13, fontWeight: 700 }}>{x.prezzo}</span>
-              <Btn piccolo onClick={() => liberaGiocatore(x.id, legaAttiva)}>rimuovi</Btn>
+              <Btn piccolo title="rimuovi l'acquisto" onClick={() => liberaGiocatore(x.id, legaAttiva)}>−</Btn>
             </div>
           ))
         )}
@@ -2324,8 +2345,7 @@ function Guida() {
           <><b>Solo target</b> lascia chi hai messo da <b>Mi piace</b> in su, e anche chi hai semplicemente segnato per un campionato, perché anche quello è un target.</>,
           <><b>Nascondi presi</b> toglie chi è già stato assegnato nel campionato che stai guardando. Tienilo acceso durante l'asta.</>,
           <><b>Solo titolari</b> compare quando le probabili sono state caricate, e lascia in lista solo chi è dato dall'80 per cento in su.</>,
-          <><b>Ordina per priorità</b> mette in cima chi vuoi nel maggior numero di campionati, poi via a scendere fino a chi ne vuoi in uno solo. A parità viene prima chi ti interessa di più, e a parità di giudizio quello che vale di più. È l'ordine giusto per non arrivare impreparato.</>,
-          <>Gli altri ordinamenti sono <b>quota</b>, cioè il prezzo di listino, <b>fvm</b>, cioè quanto vale davvero, <b>fantamedia</b>, cioè quanti punti porta a settimana, e <b>nome</b>, che serve solo per trovare qualcuno al volo. Con il filtro <b>rigoristi</b> acceso spariscono tutti, perché lì l'ordine è fisso, per rigori battuti.</>,
+          <><b>Ordina per priorità</b> mette in cima prima chi vuoi in tre campionati, poi in due, poi in uno. A parità viene prima chi ti interessa di più, e a parità di giudizio quello che vale di più. È l'ordine giusto per non arrivare impreparato.</>,
         ]} />
       </Blocco>
 
@@ -2335,8 +2355,6 @@ function Guida() {
         si legge in tre posti.
         <Elenco voci={[
           <>Nella scheda <b>Probabili</b>, squadra per squadra, con il modulo, gli undici e la panchina. I tuoi hanno il fondo colorato, verde se ce l'hai già, rosa se lo vuoi.</>,
-          <>In cima, accanto al numero delle squadre, c'è scritto <b>quanti dei tuoi sono dati titolari</b> sul totale di quelli che hai segnato. È il numero per cui apri questa scheda.</>,
-          <>Le squadre escono <b>nell'ordine delle partite</b>, quindi le due che si affrontano finiscono una sotto l'altra. Inter e Monza, poi Udinese e Como, e così via.</>,
           <>Nel <b>listone</b>, come numerino accanto alla squadra.</>,
           <>Nella <b>scheda del giocatore</b>, come pastiglia sotto il nome.</>,
         ]} />
@@ -2401,7 +2419,7 @@ function Guida() {
         <Elenco voci={[
           <>La <b>spunta</b> dice che lo vuoi in quel campionato.</>,
           <>Il campo <b>max</b> è il tetto che ti dai per quel campionato. Riappare in asta accanto al prezzo, come promemoria di quello che avevi deciso da lucido.</>,
-          <>Dopo l'asta la riga dice <b>tuo a 34</b> oppure <b>preso a 34</b>, e il tasto <b>libera</b> annulla se hai sbagliato a segnare.</>,
+          <>Dopo l'asta la riga dice <b>tuo a 34</b> oppure <b>preso a 34</b>, e il tasto <b>−</b> accanto annulla l'acquisto se hai sbagliato a segnare, solo per quel campionato.</>,
         ]} />
 
         <div style={{ fontWeight: 600, margin: "12px 0 6px" }}>Etichette e note</div>
@@ -2414,7 +2432,9 @@ function Guida() {
           <>Scrivi il nome, tocca il giocatore, metti il prezzo finale e premi <b>preso io</b> oppure <b>a un altro</b>.</>,
           <>Segnare anche gli acquisti degli avversari conviene. Ti fa capire a che prezzi sta girando l'asta e libera la lista da chi non puoi più prendere.</>,
           <>Se lo volevi anche in un altro campionato compare un <b>riquadro rosa</b> che te lo ricorda. Vuol dire che pagandolo caro qui, là dovrai rinunciare a qualcosa.</>,
-          <>Sotto c'è la tua <b>rosa</b> divisa per ruolo, con quanto hai speso su ciascuno.</>,
+          <>Sotto c'è la tua <b>rosa</b> divisa per ruolo, con quanto hai speso su ciascuno. Accanto a ognuno il tasto <b>−</b> annulla l'acquisto.</>,
+          <><b>Se hai segnato per sbaglio</b>, riscrivi il suo nome nella barra della ricerca. L'elenco normale nasconde chi è già stato assegnato, quindi ricompare più sotto, nel riquadro <b>già assegnati</b>, con il tasto <b>−</b>. Vale anche per quelli comprati dagli altri.</>,
+          <>Il meno lo rimette libero e ti ridà i crediti, e tocca solo il campionato che stai guardando.</>,
         ]} />
       </Blocco>
 
@@ -2477,7 +2497,6 @@ function Guida() {
           <>Il nome si cambia anche <b>dalla testata</b>, con la matitina accanto al campionato che stai guardando. Chiamali come si chiamano davvero, è più facile che Campionato 1 e Campionato 2.</>,
           <>Le <b>fasce del bonus difensivo</b> sono quelle ufficiali, ma quanti punti valgono lo decide ogni lega. Mettici i vostri.</>,
           <>Il <b>backup</b> scarica un file con tutto il tuo lavoro. Non serve per passare da un dispositivo all'altro, quello funziona da solo, ma è una rete di sicurezza che non costa niente.</>,
-          <><b>Ripristina backup</b> fa il contrario, rimette dentro un file scaricato prima. Serve solo se il browser ha cancellato i dati o se hai combinato un guaio e vuoi tornare indietro. Attenzione, <b>sostituisce quello che c'è adesso</b>, non lo aggiunge, e la pagina si ricarica da sola.</>,
           <>In fondo ci sono i tasti per <b>azzerare</b> gli acquisti o i giudizi. Chiedono conferma, ma non si torna indietro.</>,
         ]} />
       </Blocco>
@@ -2487,7 +2506,6 @@ function Guida() {
           <>In alto a destra c'è una scritta piccola che dice sempre come sta andando. <b>Nuvola collegata</b> vuol dire tutto a posto, <b>salvato</b> con l'ora vuol dire che ha appena registrato quello che hai fatto.</>,
           <>Se dice <b>senza rete, lavoro qui</b> non hai perso niente. Continui a lavorare normalmente e appena la linea torna spedisce tutto da solo.</>,
           <>Non vedi una cosa che avevi fatto da un altro dispositivo, ricarica la pagina. All'apertura va a prendere la versione più recente.</>,
-          <>Le scritte che compaiono lassù sono parecchie, tipo <b>mando il listone</b> o <b>probabili pubblicate</b>, e sono tutte normali. Le uniche da guardare sono quelle <b>arancioni</b>, che vogliono dire che qualcosa non è ancora partito. Anche lì non devi fare niente, riprova da solo.</>,
           <>Su iPhone e iPad conviene aggiungere il sito alla schermata Home. Tasto condividi, poi Aggiungi a Home, e si comporta come un'app.</>,
         ]} />
       </Blocco>
@@ -2686,7 +2704,7 @@ function Scheda({ p, m, setM, leghe, statoIn, prezzoIn, liberaGiocatore, mantraA
                   <span style={{ ...mono, fontSize: 11.5, fontWeight: 700, color: st === "mio" ? C.campo : C.inchiostroTenue }}>
                     {st === "mio" ? "tuo" : "preso"} a {prezzoIn(p.id, l.id)}
                   </span>
-                  <Btn piccolo onClick={() => liberaGiocatore(p.id, l.id)}>libera</Btn>
+                  <Btn piccolo title="rimuovi l'acquisto" onClick={() => liberaGiocatore(p.id, l.id)}>−</Btn>
                 </span>
               )}
             </div>
