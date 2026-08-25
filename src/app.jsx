@@ -881,13 +881,47 @@ export default function App() {
   const lega = (lid) => leghe.find((l) => l.id === lid);
 
   /* ---------- azioni asta ---------- */
-  function assegnaGiocatore(id, lid, prezzo, aChi) {
+  function assegnaGiocatore(id, lid, prezzo, aChi, team = "") {
     const a = asta(lid);
     const rosa = a.rosa.filter((x) => x.id !== id);
     const altrui = a.altrui.filter((x) => x.id !== id);
     if (aChi === "mio") rosa.push({ id, prezzo });
-    if (aChi === "altrui") altrui.push({ id, prezzo });
+    /* team e' l'identificativo dell'avversario che se l'e' aggiudicato.
+       Vuoto vuol dire che non lo sappiamo, e va bene lo stesso. */
+    if (aChi === "altrui") altrui.push({ id, prezzo, team });
     setAsta(lid, { rosa, altrui });
+  }
+
+  /* ---------- gli altri della lega ----------
+     Stanno dentro la configurazione del campionato, perche' cambiano da lega a lega.
+     Sono solo un nome con un identificativo che non cambia mai, cosi' rinominare
+     una squadra non stacca i giocatori che le avevi assegnato. */
+  const rivaliDi = (lid) => (leghe.find((l) => l.id === lid)?.rivali) || [];
+
+  function aggiungiRivale(lid, nome) {
+    const puliti = String(nome || "").trim();
+    if (!puliti) return null;
+    const gia = rivaliDi(lid);
+    /* il primo identificativo libero, S1 S2 S3 e cosi' via */
+    let n = 1;
+    while (gia.some((r) => r.id === "S" + n)) n++;
+    const nuovo = { id: "S" + n, nome: puliti };
+    setLeghe(leghe.map((l) => l.id === lid ? { ...l, rivali: [...gia, nuovo] } : l));
+    return nuovo.id;
+  }
+
+  function rinominaRivale(lid, rid, nome) {
+    setLeghe(leghe.map((l) => l.id === lid
+      ? { ...l, rivali: rivaliDi(lid).map((r) => r.id === rid ? { ...r, nome } : r) }
+      : l));
+  }
+
+  /* Togliendo una squadra i suoi acquisti restano, ma senza padrone.
+     Meglio cosi' che cancellarli, i prezzi visti all'asta sono comunque utili. */
+  function togliRivale(lid, rid) {
+    setLeghe(leghe.map((l) => l.id === lid
+      ? { ...l, rivali: rivaliDi(lid).filter((r) => r.id !== rid) }
+      : l));
   }
   function liberaGiocatore(id, lid) {
     const a = asta(lid);
@@ -1166,7 +1200,7 @@ export default function App() {
         </div>
 
         <nav className="flex gap-1 mt-3 barra">
-          {[["listone", "Listone"], ["papabili", "Papabili"], ["asta", "Asta live"], ["campo", "Campo"], ["probabili", "Probabili"], ["dati", "Dati"], ["guida", "Guida"]].map(([k, v]) => (
+          {[["listone", "Listone"], ["papabili", "Papabili"], ["asta", "Asta live"], ["tracker", "Aste Tracker"], ["campo", "Campo"], ["probabili", "Probabili"], ["dati", "Dati"], ["guida", "Guida"]].map(([k, v]) => (
             <Btn key={k} attivo={vista === k} onClick={() => setVista(k)}>{v}</Btn>
           ))}
         </nav>
@@ -1180,7 +1214,10 @@ export default function App() {
           <Papabili {...{ players, m, setM, leghe, legaAttiva, legheScelte, setLegheScelte, statoIn, prezzoIn, liberaGiocatore, mantraAttivo, rigoristi, probPerId, nLeghe, setSel }} />
         )}
         {vista === "asta" && (
-          <AstaLive {...{ lista, q, setQ, filtroRuolo, setFiltroRuolo, leghe, lega, legaAttiva, mantraAttivo, rigoristi, probPerId, m, nLeghe, statoIn, prezzoIn, assegnaGiocatore, liberaGiocatore, asta, speso, players, setSel }} />
+          <AstaLive {...{ lista, q, setQ, filtroRuolo, setFiltroRuolo, leghe, lega, legaAttiva, mantraAttivo, rigoristi, probPerId, m, nLeghe, statoIn, prezzoIn, assegnaGiocatore, liberaGiocatore, asta, speso, players, setSel, rivaliDi, aggiungiRivale }} />
+        )}
+        {vista === "tracker" && (
+          <Tracker {...{ leghe, legaAttiva, asta, speso, players, rivaliDi, setSel }} />
         )}
         {vista === "campo" && (
           <Campo {...{ lega, legaAttiva, asta, players, mdTab, setLeghe, leghe, formazioni, setFormazioni, m, statoIn }} />
@@ -1190,7 +1227,7 @@ export default function App() {
         )}
         {vista === "guida" && <Guida />}
         {vista === "dati" && (
-          <Dati {...{ importaFile, importaProbabili, probabili, setProbabili, players, setPlayers, leghe, setLeghe, meta, aste, formazioni, setMeta, setAste, setFormazioni, legaAttiva, setLegaAttiva, mdTab, setMdTab, admin, codice }} />
+          <Dati {...{ importaFile, importaProbabili, probabili, setProbabili, players, setPlayers, leghe, setLeghe, meta, aste, formazioni, setMeta, setAste, setFormazioni, legaAttiva, setLegaAttiva, mdTab, setMdTab, admin, codice, rivaliDi, aggiungiRivale, rinominaRivale, togliRivale }} />
         )}
       </main>
 
@@ -1668,9 +1705,12 @@ function Papabili({ players, m, setM, leghe, legaAttiva, legheScelte, setLegheSc
 /* ------------------------------------------------------------------ */
 
 function AstaLive(props) {
-  const { mantraAttivo, lista, q, setQ, filtroRuolo, setFiltroRuolo, leghe, lega, legaAttiva, m, nLeghe, statoIn, prezzoIn, assegnaGiocatore, liberaGiocatore, asta, speso, players, setSel } = props;
+  const { mantraAttivo, lista, q, setQ, filtroRuolo, setFiltroRuolo, leghe, lega, legaAttiva, m, nLeghe, statoIn, prezzoIn, assegnaGiocatore, liberaGiocatore, asta, speso, players, setSel, rivaliDi, aggiungiRivale } = props;
   const [target, setTarget] = useState(null);
   const [prezzo, setPrezzo] = useState("");
+  /* quando dici che l'ha preso un altro, chiediamo di chi e' */
+  const [chiedoChi, setChiedoChi] = useState(false);
+  const [rivaleNuovo, setRivaleNuovo] = useState("");
   /* la rosa si puo' richiudere, e si puo' sbirciare quella di un altro campionato
      senza cambiare campionato attivo, perche' all'asta serve sapere cosa hai gia' altrove */
   const [rosaAperta, setRosaAperta] = useState(true);
@@ -1701,11 +1741,30 @@ function AstaLive(props) {
     .filter((p) => (p.nome || "").toLowerCase().includes(cercato) || (p.squadra || "").toLowerCase().includes(cercato))
     .slice(0, 12);
 
-  function conferma(aChi) {
+  const rivali = rivaliDi(legaAttiva);
+
+  function conferma(aChi, team = "") {
     const pz = parseInt(prezzo || "0", 10);
     if (!target || !pz) return;
-    assegnaGiocatore(target.id, legaAttiva, pz, aChi);
-    setTarget(null); setPrezzo(""); setQ("");
+    assegnaGiocatore(target.id, legaAttiva, pz, aChi, team);
+    setTarget(null); setPrezzo(""); setQ(""); setChiedoChi(false); setRivaleNuovo("");
+  }
+
+  /* Il tasto a un altro. Se gli avversari li hai scritti, prima chiede di chi e',
+     se non li hai scritti assegna e basta, come faceva prima. */
+  function aUnAltro() {
+    const pz = parseInt(prezzo || "0", 10);
+    if (!target || !pz) return;
+    if (!rivali.length) { conferma("altrui"); return; }
+    setChiedoChi(true);
+  }
+
+  /* squadra scritta al volo mentre l'asta va, capita di scoprirne una all'ultimo */
+  function confermaNuovo() {
+    const nome = rivaleNuovo.trim();
+    if (!nome) return;
+    const rid = aggiungiRivale(legaAttiva, nome);
+    conferma("altrui", rid || "");
   }
 
   const altreLeghe = target ? leghe.filter((l) => l.id !== legaAttiva && m(target.id).leghe[l.id]) : [];
@@ -1875,7 +1934,7 @@ function AstaLive(props) {
                 </span>
               </div>
             </div>
-            <Btn piccolo onClick={() => { setTarget(null); setPrezzo(""); }}>annulla</Btn>
+            <Btn piccolo onClick={() => { setTarget(null); setPrezzo(""); setChiedoChi(false); setRivaleNuovo(""); }}>annulla</Btn>
           </div>
 
           <div className="flex gap-4 mt-2" style={{ ...mono, fontSize: 12 }}>
@@ -1905,15 +1964,215 @@ function AstaLive(props) {
             <button onClick={() => conferma("mio")} style={{ flex: 2, padding: 13, background: C.campo, color: "#fff", border: "none", borderRadius: 3, fontSize: 14, fontWeight: 800, textTransform: "uppercase", ...display }}>
               preso io
             </button>
-            <button onClick={() => conferma("altrui")} style={{ flex: 1, padding: 13, background: "transparent", color: C.inchiostro, border: `1.5px solid ${C.riga}`, borderRadius: 3, fontSize: 13, fontWeight: 700, textTransform: "uppercase", ...display }}>
+            <button onClick={aUnAltro} style={{ flex: 1, padding: 13, background: "transparent", color: C.inchiostro, border: `1.5px solid ${C.riga}`, borderRadius: 3, fontSize: 13, fontWeight: 700, textTransform: "uppercase", ...display }}>
               a un altro
             </button>
           </div>
+
+          {/* di chi e'. Compare solo dopo aver premuto a un altro */}
+          {chiedoChi && (
+            <div style={{ marginTop: 10, padding: 10, background: C.cartaScura, borderRadius: 3 }}>
+              <div className="flex items-baseline justify-between gap-2">
+                <span style={{ ...mono, fontSize: 10, color: C.inchiostroTenue, textTransform: "uppercase", letterSpacing: ".1em" }}>
+                  chi se l'è preso
+                </span>
+                <button onClick={() => { setChiedoChi(false); setRivaleNuovo(""); }}
+                  style={{ ...mono, fontSize: 10, color: C.rosa, textTransform: "uppercase", letterSpacing: ".08em" }}>
+                  annulla
+                </button>
+              </div>
+              <div className="flex gap-1 flex-wrap" style={{ marginTop: 6 }}>
+                {rivali.map((r) => {
+                  const suo = asta(legaAttiva).altrui.filter((x) => x.team === r.id);
+                  const sp = suo.reduce((n, x) => n + (x.prezzo || 0), 0);
+                  return (
+                    <Btn key={r.id} piccolo tono="rosa" onClick={() => conferma("altrui", r.id)}
+                      title={`${r.nome}, ${suo.length} giocatori e ${sp} crediti spesi`}>
+                      {r.nome}
+                      <span style={{ ...mono, fontSize: 9.5, marginLeft: 4, opacity: .7 }}>{L.budget - sp}</span>
+                    </Btn>
+                  );
+                })}
+                <Btn piccolo onClick={() => conferma("altrui")}>non so chi</Btn>
+              </div>
+              <div className="flex gap-2 mt-2">
+                <input value={rivaleNuovo} onChange={(e) => setRivaleNuovo(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") confermaNuovo(); }}
+                  placeholder="Una squadra che non c'è"
+                  style={{ flex: 1, minWidth: 0, padding: "6px 8px", border: `1px solid ${C.riga}`, borderRadius: 2, fontSize: 12.5, ...display }} />
+                <Btn piccolo attivo={!!rivaleNuovo.trim()} onClick={confermaNuovo}>aggiungi e assegna</Btn>
+              </div>
+              <div style={{ ...mono, fontSize: 10, color: C.inchiostroTenue, marginTop: 6, lineHeight: 1.45 }}>
+                Il numero accanto al nome è quanto gli resta. Tutto finisce nella scheda Aste Tracker.
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       {/* mentre metti il prezzo le rose restano sotto, servono proprio in quel momento */}
       {target && bloccoRose}
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  VISTA ASTE TRACKER                                                 */
+/*  Come stanno messi gli altri. Quanto hanno speso, quanto gli resta  */
+/*  e quali caselle hanno gia' riempito, ruolo per ruolo.              */
+/* ------------------------------------------------------------------ */
+
+function Tracker({ leghe, legaAttiva, asta, speso, players, rivaliDi, setSel }) {
+  /* si guarda un campionato alla volta, ma senza cambiare quello attivo */
+  const [quale, setQuale] = useState(legaAttiva);
+  useEffect(() => { setQuale(legaAttiva); }, [legaAttiva]);
+  const [aperta, setAperta] = useState(null);
+
+  /* la mappa Id -> giocatore sta prima di ogni uscita anticipata,
+     altrimenti l'ordine degli hook cambierebbe da un giro all'altro */
+  const perId = useMemo(() => {
+    const o = {};
+    for (const p of players) o[p.id] = p;
+    return o;
+  }, [players]);
+
+  const L = leghe.find((l) => l.id === quale) || leghe[0];
+  if (!L) return null;
+  const a = asta(L.id);
+  const rivali = rivaliDi(L.id);
+
+  const ruoloDi = (id) => perId[id]?.r || "?";
+
+  /* Una scheda per ognuno, la tua per prima. Gli acquisti senza padrone
+     finiscono in fondo, in un mucchio a parte. */
+  const senzaNome = a.altrui.filter((x) => !x.team || !rivali.some((r) => r.id === x.team));
+  const squadre = [
+    { id: "__mia__", nome: "La tua rosa", mia: true, presi: a.rosa },
+    ...rivali.map((r) => ({ id: r.id, nome: r.nome, mia: false, presi: a.altrui.filter((x) => x.team === r.id) })),
+    ...(senzaNome.length ? [{ id: "__ignoti__", nome: "Presi da non so chi", ignoti: true, presi: senzaNome }] : []),
+  ];
+
+  const conto = (presi) => presi.reduce((n, x) => n + (x.prezzo || 0), 0);
+
+  return (
+    <>
+      <div style={{ background: C.inchiostro, color: C.carta, borderRadius: 3, padding: "10px 12px" }}>
+        <div style={{ fontSize: 15, fontWeight: 800 }}>Come stanno messi gli altri</div>
+        <div style={{ fontSize: 12.5, lineHeight: 1.45, marginTop: 4, opacity: .9 }}>
+          {rivali.length === 0
+            ? "Non hai ancora scritto chi sono gli altri di questa lega. Vai nel pannello Dati, riquadro Gli altri della lega, e mettici i loro nomi. Poi all'asta, quando segni un giocatore preso da un altro, ti chiede di chi è."
+            : `${rivali.length} avversari in ${L.nome}. Quando all'asta segni un giocatore preso da un altro, ti viene chiesto di chi è, e da lì si riempie tutto questo.`}
+        </div>
+      </div>
+
+      {leghe.length > 1 && (
+        <div className="flex gap-1 flex-wrap" style={{ marginTop: 10 }}>
+          {leghe.map((l) => (
+            <Btn key={l.id} piccolo attivo={l.id === quale} onClick={() => setQuale(l.id)}>{l.nome}</Btn>
+          ))}
+        </div>
+      )}
+
+      <div className="flex gap-2 flex-wrap" style={{ alignItems: "flex-start", marginTop: 4 }}>
+        {squadre.map((sq) => {
+          const sp = conto(sq.presi);
+          const resta = L.budget - sp;
+          const apertaQui = aperta === sq.id;
+          return (
+            <div key={sq.id} style={{
+              flex: "1 1 250px", background: "#fff", borderRadius: 3, marginTop: 8,
+              border: sq.mia ? `2px solid ${C.campo}` : `1px solid ${C.riga}`,
+            }}>
+              <div style={{ padding: "8px 10px", borderBottom: `1px solid ${C.riga}` }}>
+                <div className="flex items-baseline justify-between gap-2">
+                  <span style={{ fontSize: 14.5, fontWeight: 800, color: sq.mia ? C.campo : C.inchiostro,
+                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {sq.nome}
+                  </span>
+                  <span style={{ ...mono, fontSize: 10, color: C.inchiostroTenue }}>
+                    {sq.presi.length} gioc.
+                  </span>
+                </div>
+                {/* i crediti, come nella testata */}
+                {sq.ignoti ? (
+                  <div style={{ ...mono, fontSize: 12, color: C.inchiostroTenue, margin: "3px 0 4px" }}>
+                    {sp} crediti spesi in tutto
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ ...mono, fontSize: 16, fontWeight: 700, margin: "2px 0 4px" }}>
+                      {resta}
+                      <span style={{ fontSize: 10, color: C.inchiostroTenue }}> /{L.budget}</span>
+                      <span style={{ fontSize: 10, color: C.inchiostroTenue, marginLeft: 8 }}>{sp} spesi</span>
+                    </div>
+                    <BarraCrediti speso={sp} budget={L.budget} />
+                  </>
+                )}
+              </div>
+
+              {/* le caselle per ruolo, quante ne ha riempite su quante ne servono */}
+              {!sq.ignoti && (
+                <div className="flex" style={{ borderBottom: `1px solid ${C.riga}` }}>
+                  {RUOLI_C.map((r) => {
+                    const n = sq.presi.filter((x) => ruoloDi(x.id) === r).length;
+                    const max = L.rosaMax?.[r] || 0;
+                    const pieno = max > 0 && n >= max;
+                    return (
+                      <div key={r} style={{ flex: 1, textAlign: "center", padding: "6px 2px",
+                        borderRight: r === "A" ? "none" : `1px solid ${C.riga}` }}>
+                        <div style={{ ...mono, fontSize: 9, color: C.inchiostroTenue, textTransform: "uppercase", letterSpacing: ".08em" }}>{r}</div>
+                        <div style={{ ...mono, fontSize: 13.5, fontWeight: 700, color: pieno ? C.campo : C.inchiostro }}>
+                          {n}<span style={{ fontSize: 9.5, fontWeight: 400, color: C.inchiostroTenue }}>/{max}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* chi ha preso, si apre e si chiude */}
+              <button onClick={() => setAperta(apertaQui ? null : sq.id)}
+                style={{ ...mono, fontSize: 10, color: C.inchiostroTenue, textTransform: "uppercase",
+                  letterSpacing: ".1em", padding: "6px 10px", width: "100%", textAlign: "left" }}>
+                {apertaQui ? "▾" : "▸"} chi ha preso
+              </button>
+              {apertaQui && (
+                sq.presi.length === 0 ? (
+                  <div style={{ ...mono, fontSize: 11, color: C.inchiostroTenue, padding: "0 10px 9px" }}>
+                    ancora nessuno
+                  </div>
+                ) : (
+                  <div style={{ paddingBottom: 4 }}>
+                    {[...sq.presi]
+                      .sort((x, y) => (RUOLI_C.indexOf(ruoloDi(x.id)) - RUOLI_C.indexOf(ruoloDi(y.id))) || (y.prezzo - x.prezzo))
+                      .map((x) => {
+                        const p = perId[x.id];
+                        return (
+                          <div key={x.id} className="flex items-center gap-2" style={{ padding: "3px 10px" }}>
+                            <RuoloC r={ruoloDi(x.id)} />
+                            <button onClick={() => p && setSel(x.id)} className="flex-1 text-left min-w-0"
+                              style={{ fontSize: 12.5, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {p ? p.nome : "giocatore " + x.id}
+                              <span style={{ ...mono, fontSize: 9.5, color: C.inchiostroTenue, marginLeft: 5, textTransform: "uppercase" }}>
+                                {p?.squadra || ""}
+                              </span>
+                            </button>
+                            <span style={{ ...mono, fontSize: 12, fontWeight: 700 }}>{x.prezzo}</span>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ ...mono, fontSize: 10.5, color: C.inchiostroTenue, marginTop: 12, lineHeight: 1.5 }}>
+        I crediti che restano sono il budget del campionato meno quello che ognuno ha speso.
+        Vale lo stesso budget per tutti, perché è quello della lega.
+      </div>
     </>
   );
 }
@@ -2370,8 +2629,10 @@ function Campo({ lega, legaAttiva, asta, players, mdTab, setLeghe, leghe, formaz
 /*  VISTA DATI                                                         */
 /* ------------------------------------------------------------------ */
 
-function Dati({ importaFile, importaProbabili, probabili, setProbabili, players, setPlayers, leghe, setLeghe, meta, aste, formazioni, setMeta, setAste, setFormazioni, legaAttiva, setLegaAttiva, mdTab, setMdTab, admin, codice }) {
+function Dati({ importaFile, importaProbabili, probabili, setProbabili, players, setPlayers, leghe, setLeghe, meta, aste, formazioni, setMeta, setAste, setFormazioni, legaAttiva, setLegaAttiva, mdTab, setMdTab, admin, codice, rivaliDi, aggiungiRivale, rinominaRivale, togliRivale }) {
   const [msg, setMsg] = useState("");
+  /* il nome che stai scrivendo, uno per campionato */
+  const [nuovoRivale, setNuovoRivale] = useState({});
   const [esitoProb, setEsitoProb] = useState(null);
   const ref = useRef();
   const refProb = useRef();
@@ -2564,6 +2825,70 @@ function Dati({ importaFile, importaProbabili, probabili, setProbabili, players,
             : <span style={{ ...mono, fontSize: 11, color: C.inchiostroTenue }}>
                 sei campionati sono il massimo
               </span>}
+        </div>
+      </div>
+
+      <div style={{ background: "#fff", border: `1px solid ${C.riga}`, borderRadius: 3, padding: 12, marginTop: 10 }}>
+        <div style={{ fontSize: 15, fontWeight: 800 }}>Gli altri della lega</div>
+        <div style={{ fontSize: 12.5, color: C.inchiostroTenue, marginTop: 4, lineHeight: 1.45 }}>
+          I nomi delle squadre con cui giochi. Servono all'asta, perché quando segni un giocatore
+          preso da un altro ti viene chiesto di chi è. Da lì la scheda Aste Tracker tiene il conto
+          di quanto ha speso ognuno e di quali caselle ha già riempito.
+        </div>
+        {leghe.map((l) => {
+          const rivali = rivaliDi(l.id);
+          const scritto = nuovoRivale[l.id] || "";
+          const metti = () => {
+            if (!scritto.trim()) return;
+            aggiungiRivale(l.id, scritto);
+            setNuovoRivale({ ...nuovoRivale, [l.id]: "" });
+          };
+          return (
+            <div key={l.id} style={{ borderTop: `1px solid ${C.riga}`, marginTop: 10, paddingTop: 8 }}>
+              <div className="flex items-baseline justify-between gap-2">
+                <span style={{ fontSize: 13.5, fontWeight: 700 }}>{l.nome}</span>
+                <span style={{ ...mono, fontSize: 10, color: C.inchiostroTenue, textTransform: "uppercase", letterSpacing: ".08em" }}>
+                  {rivali.length === 0 ? "nessuna squadra" : rivali.length === 1 ? "1 squadra" : rivali.length + " squadre"}
+                </span>
+              </div>
+              {rivali.map((r) => (
+                <div key={r.id} className="flex items-center gap-2 mt-2">
+                  <input
+                    value={r.nome}
+                    onChange={(e) => rinominaRivale(l.id, r.id, e.target.value)}
+                    style={{ flex: 1, minWidth: 0, padding: "6px 8px", border: `1px solid ${C.riga}`, borderRadius: 2, fontSize: 13, ...display }}
+                  />
+                  <button
+                    onClick={() => {
+                      const suoi = (aste[l.id]?.altrui || []).filter((x) => x.team === r.id).length;
+                      const avviso = suoi
+                        ? `Tolgo ${r.nome}. I ${suoi} giocatori che gli avevi assegnato restano, ma finiscono tra quelli presi da non so chi.`
+                        : `Tolgo ${r.nome} da ${l.nome}`;
+                      if (confirm(avviso)) togliRivale(l.id, r.id);
+                    }}
+                    title={"togli " + r.nome}
+                    style={{ ...mono, fontSize: 15, lineHeight: 1, color: C.inchiostroTenue,
+                      border: `1px solid ${C.riga}`, borderRadius: 2, padding: "4px 9px", background: "#fff" }}>
+                    −
+                  </button>
+                </div>
+              ))}
+              <div className="flex gap-2 mt-2">
+                <input
+                  value={scritto}
+                  onChange={(e) => setNuovoRivale({ ...nuovoRivale, [l.id]: e.target.value })}
+                  onKeyDown={(e) => { if (e.key === "Enter") metti(); }}
+                  placeholder="Nome di una squadra avversaria"
+                  style={{ flex: 1, minWidth: 0, padding: "6px 8px", border: `1px solid ${C.riga}`, borderRadius: 2, fontSize: 13, ...display }}
+                />
+                <Btn piccolo attivo={!!scritto.trim()} onClick={metti}>aggiungi</Btn>
+              </div>
+            </div>
+          );
+        })}
+        <div style={{ ...mono, fontSize: 11, color: C.inchiostroTenue, marginTop: 10, lineHeight: 1.5 }}>
+          Il budget è lo stesso per tutti, è quello del campionato qui sopra. Rinominare una squadra
+          non stacca i giocatori che le avevi assegnato.
         </div>
       </div>
 
@@ -2850,11 +3175,12 @@ function Guida() {
         </div>
       </Blocco>
 
-      <Blocco titolo="Le sei schede" sotto="a cosa serve ognuna">
+      <Blocco titolo="Le sette schede" sotto="a cosa serve ognuna">
         <Elenco voci={[
           <><b>Listone</b>, l'elenco di tutti i giocatori. Qui ci passi le sere prima dell'asta.</>,
           <><b>Papabili</b>, solo i giocatori che hai segnato, divisi per squadra, per sfoltire in fretta.</>,
           <><b>Asta live</b>, da usare mentre l'asta è in corso. Segni chi prendi e a quanto.</>,
+          <><b>Aste Tracker</b>, come stanno messi gli altri. Quanto hanno speso e cosa gli manca.</>,
           <><b>Campo</b>, per vedere che squadra viene fuori da quello che hai comprato.</>,
           <><b>Probabili</b>, chi gioca davvero domenica, squadra per squadra.</>,
           <><b>Dati</b>, le impostazioni dei campionati e il backup.</>,
@@ -2997,7 +3323,28 @@ function Guida() {
           <>Se giochi più di un campionato, i tastini con i nomi ti fanno <b>sbirciare la rosa di un'altra lega</b> senza uscire dall'asta che stai facendo. Serve per ricordarti cosa hai già preso altrove prima di rilanciare.</>,
           <><b>Se hai segnato per sbaglio</b>, riscrivi il suo nome nella barra della ricerca. L'elenco normale nasconde chi è già stato assegnato, quindi ricompare più sotto, nel riquadro <b>già assegnati</b>, con il tasto <b>−</b>. Vale anche per quelli comprati dagli altri.</>,
           <>Il meno lo rimette libero e ti ridà i crediti, e tocca solo il campionato che stai guardando.</>,
+          <>Premendo <b>a un altro</b>, se hai scritto i nomi degli avversari, ti viene chiesto <b>di chi è</b>. Accanto a ogni nome c'è quanto gli resta. Se è uno che non avevi previsto lo scrivi lì e viene aggiunto al volo, e se non hai voglia di saperlo c'è <b>non so chi</b>.</>,
         ]} />
+      </Blocco>
+
+      <Blocco titolo="Aste Tracker" sotto="come stanno messi gli altri">
+        All'asta non conta solo quanto hai speso tu. Conta soprattutto <b>quanto è rimasto agli altri</b>
+        e quali caselle hanno già riempito, perché è quello che decide se su un giocatore ci sarà
+        battaglia oppure lo prendi a due crediti.
+        <Elenco voci={[
+          <>Prima scrivi i nomi delle squadre avversarie nel pannello <b>Dati</b>, riquadro <b>Gli altri della lega</b>. Una volta sola, poi restano.</>,
+          <>All'asta, ogni volta che segni un giocatore <b>preso da un altro</b>, dici di chi è. È l'unico lavoro in più che ti chiede.</>,
+          <>Qui trovi <b>una scheda per ognuno</b>, la tua per prima col bordo verde. Dice quanti crediti gli restano, quanti ne ha spesi e la barra come in testata.</>,
+          <>Sotto, le <b>quattro caselle dei ruoli</b>. Dicono quanti portieri, difensori, centrocampisti e attaccanti ha già preso su quanti gliene servono. Quando un ruolo è pieno il numero diventa verde, e quello è il momento in cui smette di fare battaglia lì.</>,
+          <><b>Chi ha preso</b> si apre e si chiude, ed elenca i suoi giocatori in ordine di ruolo, col prezzo pagato. Toccando un nome si apre la sua scheda.</>,
+          <>Chi hai segnato come preso da un altro <b>senza dire di chi</b> finisce in fondo, nel mucchio <b>presi da non so chi</b>. I prezzi restano comunque utili.</>,
+          <>Se giochi più campionati, i tastini in alto ti fanno guardare gli altri senza cambiare campionato attivo.</>,
+        ]} />
+        <div style={{ ...mono, fontSize: 11, color: C.inchiostroTenue, marginTop: 8, lineHeight: 1.5 }}>
+          Il budget è lo stesso per tutti, è quello del campionato. I crediti che restano a ognuno
+          sono il budget meno quello che gli hai visto spendere, quindi valgono se sei stato preciso
+          nel segnare gli acquisti degli altri.
+        </div>
       </Blocco>
 
       <Blocco titolo="Campo" sotto="che squadra è venuta fuori">
@@ -3069,6 +3416,7 @@ function Guida() {
           <>I <b>campionati</b> si aggiungono col più e si tolgono col meno, da uno a sei. Nome, crediti e regolamento si cambiano quando vuoi, anche a asta iniziata.</>,
           <>Il nome si cambia anche <b>dalla testata</b>. Tocca il nome del campionato principale, quello con la stella, e diventa scrivibile. Chiamali come si chiamano davvero, è più facile che Campionato 1 e Campionato 2.</>,
           <>La <b>stella</b> dice qual è il campionato principale. È quello che decide se le quote che leggi sono classic o mantra, quindi se hai un campionato mantra e vuoi le sue quote, mettici la stella.</>,
+          <><b>Gli altri della lega</b> sono i nomi delle squadre con cui giochi, uno per riga e separati per campionato. Servono all'asta e alla scheda Aste Tracker. Togliendone una i suoi acquisti restano, ma finiscono tra quelli presi da non so chi.</>,
           <>Le <b>fasce del bonus difensivo</b> sono quelle ufficiali, ma quanti punti valgono lo decide ogni lega. Mettici i vostri.</>,
           <>Il <b>backup</b> scarica un file con tutto il tuo lavoro. Non serve per passare da un dispositivo all'altro, quello funziona da solo, ma è una rete di sicurezza che non costa niente.</>,
           <>In fondo ci sono i tasti per <b>azzerare</b> gli acquisti o i giudizi. Chiedono conferma, ma non si torna indietro.</>,
