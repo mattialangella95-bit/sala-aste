@@ -350,6 +350,42 @@ function Pallino({ on, lettera, colore, onClick, title }) {
   );
 }
 
+/* ------------------------------------------------------------------
+   I ruoli.
+   Il ruolo Classic e' uno solo e si mostra come quadratino pieno colorato.
+   I ruoli Mantra sono piu' d'uno e si mostrano come pastiglie vuote.
+   Forma diversa e colore diverso, cosi' non si confondono a colpo d'occhio.
+------------------------------------------------------------------ */
+const COLORE_R = { P: "#C8892A", D: "#1F6B4A", C: "#2E5E9E", A: "#D02E5E" };
+
+function RuoloC({ r, grande }) {
+  return (
+    <span style={{
+      ...mono, display: "inline-block", textAlign: "center", color: "#fff",
+      background: COLORE_R[r] || C.inchiostroTenue, borderRadius: 2, fontWeight: 800,
+      width: grande ? 21 : 17, height: grande ? 21 : 17,
+      fontSize: grande ? 12.5 : 11, lineHeight: grande ? "21px" : "17px",
+      textTransform: "none", letterSpacing: 0, flex: "0 0 auto",
+    }}>{r}</span>
+  );
+}
+
+function RuoliM({ rm, grande }) {
+  if (!rm?.length) return null;
+  return (
+    <span className="inline-flex gap-1" style={{ verticalAlign: "middle" }}>
+      {rm.map((x) => (
+        <span key={x} style={{
+          ...mono, border: `1px solid ${C.riga}`, background: "#fff", color: C.inchiostroTenue,
+          borderRadius: 9, fontWeight: 700, textTransform: "none", letterSpacing: 0,
+          padding: grande ? "1px 7px" : "0 5px",
+          fontSize: grande ? 11.5 : 10, lineHeight: grande ? "17px" : "15px",
+        }}>{x}</span>
+      ))}
+    </span>
+  );
+}
+
 function BarraCrediti({ speso, budget }) {
   const pct = Math.min(100, (speso / budget) * 100);
   return (
@@ -1111,8 +1147,8 @@ function Riga({ p, leghe, m, setM, nLeghe, statoIn, prezzoIn, legaAttiva, mantra
       {/* barretta interesse */}
       <div style={{ width: 3, alignSelf: "stretch", background: mm.interesse ? inter.col : "transparent", borderRadius: 2 }} />
 
-      {/* ruolo */}
-      <div style={{ ...mono, width: 16, fontSize: 12, fontWeight: 700, color: C.inchiostroTenue }}>{p.r}</div>
+      {/* ruolo Classic, quadratino colorato */}
+      <RuoloC r={p.r} />
 
       {/* nome */}
       <button onClick={onApri} className="flex-1 text-left min-w-0">
@@ -1122,7 +1158,7 @@ function Riga({ p, leghe, m, setM, nLeghe, statoIn, prezzoIn, legaAttiva, mantra
         <div style={{ ...mono, fontSize: 10, color: C.inchiostroTenue, textTransform: "uppercase", letterSpacing: ".06em" }}>
           {p.squadra}
           {perc ? <b style={{ color: COLORE_FASCIA[fasciaTitolarita(perc)] }}>{" " + perc + "%"}</b> : ""}
-          {p.rm?.length ? ` · ${p.rm.join(" ")}` : ""}
+          {p.rm?.length ? <>{" "}<RuoliM rm={p.rm} /></> : null}
           {rigoristi?.[p.id] ? <b style={{ color: C.rosa }}>{" · rig " + rigoristi[p.id]}</b> : ""}{prezzoIn(p.id, legaAttiva) != null ? ` · pagato ${prezzoIn(p.id, legaAttiva)}` : ""}
         </div>
       </button>
@@ -1298,7 +1334,7 @@ function AstaLive(props) {
             .sort((u, v) => v.prezzo - u.prezzo)
             .map((x) => (
               <div key={x.id} className="flex items-center gap-2" style={{ borderBottom: `1px solid ${C.riga}`, padding: "6px" }}>
-                <span style={{ ...mono, width: 16, fontSize: 12, fontWeight: 700, color: C.inchiostroTenue }}>{r}</span>
+                <RuoloC r={r} />
                 <button className="flex-1 text-left min-w-0" onClick={() => setSel(x.id)}
                   style={{ fontSize: 13.5, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {x.p.nome}
@@ -1390,7 +1426,7 @@ function AstaLive(props) {
                   const st = statoIn(p.id, legaAttiva);
                   return (
                     <div key={p.id} className="flex items-center gap-2" style={{ borderBottom: `1px solid ${C.riga}`, padding: "6px" }}>
-                      <span style={{ ...mono, width: 16, fontSize: 12, fontWeight: 700, color: C.inchiostroTenue }}>{p.r}</span>
+                      <RuoloC r={p.r} />
                       <button className="flex-1 text-left min-w-0" onClick={() => setSel(p.id)}
                         style={{ fontSize: 13.5, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {p.nome}
@@ -1415,7 +1451,11 @@ function AstaLive(props) {
             <div>
               <div style={{ fontSize: 21, fontWeight: 800, lineHeight: 1.1 }}>{target.nome}</div>
               <div style={{ ...mono, fontSize: 11, color: C.inchiostroTenue, textTransform: "uppercase" }}>
-                {target.squadra} · {target.r} {target.rm?.join(" ")}
+                {target.squadra}
+                <span className="inline-flex items-center gap-1" style={{ marginLeft: 8, verticalAlign: "middle" }}>
+                  <RuoloC r={target.r} />
+                  <RuoliM rm={target.rm} />
+                </span>
               </div>
             </div>
             <Btn piccolo onClick={() => { setTarget(null); setPrezzo(""); }}>annulla</Btn>
@@ -2547,7 +2587,17 @@ function Guida() {
       </Blocco>
 
       <Blocco titolo="Legenda dei ruoli" sotto="le sigle che trovi ovunque">
-        <div style={{ marginBottom: 8 }}>In <b>Classic</b> i ruoli sono quattro.</div>
+        <div style={{ marginBottom: 8 }}>
+          Come si riconoscono a colpo d'occhio. Il ruolo <b>Classic</b> è un <b>quadratino pieno colorato</b>,
+          uno solo per giocatore. I ruoli <b>Mantra</b> sono <b>pastiglie vuote col bordo</b>, e possono essere più d'uno.
+        </div>
+        <div className="flex gap-1 items-center flex-wrap" style={{ marginBottom: 10 }}>
+          {RUOLI_C.map((r) => <RuoloC key={r} r={r} grande />)}
+          <span style={{ ...mono, fontSize: 11, color: C.inchiostroTenue, margin: "0 6px" }}>classic</span>
+          <RuoliM rm={["Dc", "E", "T"]} grande />
+          <span style={{ ...mono, fontSize: 11, color: C.inchiostroTenue, marginLeft: 6 }}>mantra</span>
+        </div>
+        <div style={{ marginBottom: 8 }}>In <b>Classic</b> i ruoli sono quattro, e ognuno ha il suo colore.</div>
         <Voce sigla="P D C A">Portiere, difensore, centrocampista, attaccante.</Voce>
         <div style={{ margin: "12px 0 8px" }}>In <b>Mantra</b> sono dodici e un giocatore può averne più di uno. Sono quelli che decidono in quali caselle del modulo può entrare.</div>
         <Voce sigla="Por">Portiere</Voce>
@@ -2681,7 +2731,11 @@ function Scheda({ p, m, setM, leghe, statoIn, prezzoIn, liberaGiocatore, mantraA
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 25, fontWeight: 800, lineHeight: 1.05, letterSpacing: "-0.04em" }}>{p.nome}</div>
             <div style={{ ...mono, fontSize: 11, color: C.inchiostroTenue, textTransform: "uppercase", letterSpacing: ".08em", marginTop: 2 }}>
-              {p.squadra} · {p.r}{p.rm?.length ? ` · ${p.rm.join(" ")}` : ""}
+              {p.squadra}
+              <span className="inline-flex items-center gap-1" style={{ marginLeft: 8, verticalAlign: "middle" }}>
+                <RuoloC r={p.r} grande />
+                {p.rm?.length ? <RuoliM rm={p.rm} grande /> : null}
+              </span>
             </div>
             <div className="flex gap-1 flex-wrap" style={{ marginTop: 5 }}>
               {/* quanto lo danno titolare nelle probabili dell'ultima giornata */}
