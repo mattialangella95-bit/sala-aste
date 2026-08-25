@@ -855,10 +855,15 @@ export default function App() {
           pvP: 0, mvP: 0, fmP: 0, gfP: 0, assP: 0,
           ammP: 0, espP: 0, rpP: 0, rcP: 0, gsP: 0, auP: 0, rPiuP: 0, rMenoP: 0,
         };
-        if (cNome > -1 && norm(r[cNome])) base.nome = norm(r[cNome]);
-        if (cSq > -1 && norm(r[cSq])) base.squadra = norm(r[cSq]);
-        if (cR > -1 && norm(r[cR])) base.r = norm(r[cR]);
-        if (cRM > -1 && norm(r[cRM])) base.rm = norm(r[cRM]).split(";").map(norm).filter(Boolean);
+        /* Nome, squadra e ruoli li decide solo la stagione in corso. Anche i file di
+           statistiche hanno queste colonne, ma quelli dell'anno scorso portano la
+           squadra vecchia e a volte un ruolo diverso, e riscriverebbero i dati buoni. */
+        if (stagione !== "precedente") {
+          if (cNome > -1 && norm(r[cNome])) base.nome = norm(r[cNome]);
+          if (cSq > -1 && norm(r[cSq])) base.squadra = norm(r[cSq]);
+          if (cR > -1 && norm(r[cR])) base.r = norm(r[cR]);
+          if (cRM > -1 && norm(r[cRM])) base.rm = norm(r[cRM]).split(";").map(norm).filter(Boolean);
+        }
 
         if (isStat) {
           const dest = stagione === "precedente" ? "P" : "";
