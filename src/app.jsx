@@ -399,6 +399,24 @@ function BarraCrediti({ speso, budget }) {
   );
 }
 
+/* Di quale listino sono i numeri che stai leggendo. Le quotazioni Mantra
+   sono altre, e per circa un giocatore su tre sono diverse da quelle Classic.
+   Il consiglio esce solo se un campionato Mantra ce l'hai davvero. */
+function Listino({ mantraAttivo, leghe }) {
+  const haMantra = leghe.some((l) => l.modalita === "mantra");
+  return (
+    <span style={{ ...mono, fontSize: 10.5, textTransform: "uppercase", letterSpacing: ".1em",
+      color: mantraAttivo ? C.rosa : C.inchiostroTenue }}>
+      quote {mantraAttivo ? "mantra" : "classic"}
+      {!mantraAttivo && haMantra && (
+        <span style={{ textTransform: "none", letterSpacing: 0, color: C.inchiostroTenue }}>
+          {", per le mantra scegli un campionato mantra"}
+        </span>
+      )}
+    </span>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /*  SCHERMATA D'INGRESSO                                               */
 /* ------------------------------------------------------------------ */
@@ -1272,8 +1290,11 @@ function Listone(props) {
         )}
       </div>
 
-      <div style={{ ...mono, fontSize: 10.5, color: C.inchiostroTenue, margin: "10px 0 2px", textTransform: "uppercase", letterSpacing: ".1em" }}>
-        {lista.length} giocatori
+      <div className="flex items-baseline gap-2 flex-wrap" style={{ margin: "10px 0 2px" }}>
+        <span style={{ ...mono, fontSize: 10.5, color: C.inchiostroTenue, textTransform: "uppercase", letterSpacing: ".1em" }}>
+          {lista.length} giocatori
+        </span>
+        <Listino mantraAttivo={props.mantraAttivo} leghe={props.leghe} />
       </div>
       <div style={{ background: "#fff", border: `1px solid ${C.riga}`, borderRadius: 3 }}>
         {lista.slice(0, 300).map((p) => (
@@ -1430,6 +1451,7 @@ function Papabili({ players, m, setM, leghe, legaAttiva, legheScelte, setLegheSc
           {elenco.length} giocatori
         </span>
       </div>
+      <div style={{ marginBottom: 4 }}><Listino mantraAttivo={mantraAttivo} leghe={leghe} /></div>
 
       <div style={{ background: "#fff", border: `1px solid ${C.riga}`, borderRadius: 3 }}>
         {!elenco.length && (
