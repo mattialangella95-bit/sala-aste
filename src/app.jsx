@@ -2681,6 +2681,8 @@ function Dati({ importaFile, importaProbabili, probabili, setProbabili, players,
   /* il nome che stai scrivendo, uno per campionato */
   const [nuovoRivale, setNuovoRivale] = useState({});
   const [esitoProb, setEsitoProb] = useState(null);
+  /* quale campionato stai rinominando da questo pannello */
+  const [rinominaQui, setRinominaQui] = useState(null);
   const ref = useRef();
   const refProb = useRef();
   const rifBackup = useRef();
@@ -2840,14 +2842,32 @@ function Dati({ importaFile, importaProbabili, probabili, setProbabili, players,
         <div style={{ fontSize: 12.5, color: C.inchiostroTenue, marginTop: 4, lineHeight: 1.45 }}>
           Crediti a disposizione e regolamento. Puoi tenerne uno solo oppure fino a {LEGHE_MAX},
           il giudizio sui giocatori resta comunque uno e vale per tutti.
-          Il <b>nome</b> si cambia dalla testata, toccando il nome del campionato con la stella.
+          Il <b>nome</b> si cambia con la pennina qui sotto, oppure dalla testata toccando
+          il nome del campionato con la stella.
         </div>
         {leghe.map((l) => (
           <div key={l.id} className="flex items-center gap-2 mt-2">
-            <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 700,
-              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {l.nome}
-            </span>
+            {rinominaQui === l.id ? (
+              <input
+                autoFocus
+                value={l.nome}
+                onChange={(e) => setLeghe(leghe.map((x) => x.id === l.id ? { ...x, nome: e.target.value } : x))}
+                onBlur={() => setRinominaQui(null)}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === "Escape") setRinominaQui(null); }}
+                style={{ flex: 1, minWidth: 0, padding: "6px 8px", border: `1px solid ${C.rosa}`, borderRadius: 2, fontSize: 13, ...display }}
+              />
+            ) : (
+              <span className="flex items-center gap-1 min-w-0" style={{ flex: 1 }}>
+                <span style={{ minWidth: 0, fontSize: 13.5, fontWeight: 700,
+                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {l.nome}
+                </span>
+                <button onClick={() => setRinominaQui(l.id)} title={"rinomina " + l.nome}
+                  style={{ fontSize: 12, lineHeight: 1, color: C.rosa, padding: "0 3px", flex: "0 0 auto" }}>
+                  ✎
+                </button>
+              </span>
+            )}
             <input
               value={l.budget} inputMode="numeric"
               onChange={(e) => setLeghe(leghe.map((x) => x.id === l.id ? { ...x, budget: parseInt(e.target.value || 0, 10) } : x))}
@@ -3460,7 +3480,7 @@ function Guida() {
       <Blocco titolo="Dati" sotto="impostazioni">
         <Elenco voci={[
           <>Quando l'amministratore ricarica le <b>quotazioni</b> della stagione in corso, il listone viene riallineato a quel file. Chi ha lasciato la serie A sparisce, così non resta in giro con la squadra dell'anno prima.</>,
-          <>I <b>campionati</b> si aggiungono col più e si tolgono col meno, da uno a sei. Crediti e regolamento si cambiano quando vuoi, anche a asta iniziata. Il nome no, quello si cambia dalla testata.</>,
+          <>I <b>campionati</b> si aggiungono col più e si tolgono col meno, da uno a sei. Crediti e regolamento si cambiano quando vuoi, anche a asta iniziata. Il nome si cambia con la <b>pennina</b> accanto a ognuno.</>,
           <>Il nome si cambia anche <b>dalla testata</b>. Tocca il nome del campionato principale, quello con la stella, e diventa scrivibile. Chiamali come si chiamano davvero, è più facile che Campionato 1 e Campionato 2.</>,
           <>La <b>stella</b> dice qual è il campionato principale. È quello che decide se le quote che leggi sono classic o mantra, quindi se hai un campionato mantra e vuoi le sue quote, mettici la stella.</>,
           <><b>Gli altri della lega</b> sono i nomi delle squadre con cui giochi, uno per riga e separati per campionato. Servono all'asta e alla scheda Aste Tracker. Togliendone una i suoi acquisti restano, ma finiscono tra quelli presi da non so chi.</>,
