@@ -1280,27 +1280,34 @@ function Papabili({ players, m, setM, leghe, legaAttiva, statoIn, prezzoIn, libe
   /* qui teniamo anche i giocatori di prova, come fa il listone, altrimenti
      chi apre l'app prima dell'import trova la scheda vuota */
   const veri = players;
+  const legaNome = (leghe.find((l) => l.id === legaAttiva) || {}).nome || "questo campionato";
 
-  /* le squadre in ordine alfabetico, con quanti ne hai gia' giudicati */
+  /* Qui non sta tutto il listone. Stanno solo i giocatori che hai segnato per il
+     campionato scelto in cima, cioe' quelli col quadratino acceso nel Listone.
+     Per ogni squadra contiamo quanti ne hai segnati. */
+  const segnato = (id) => !!m(id).leghe?.[legaAttiva];
+
   const squadre = useMemo(() => {
     const o = new Map();
     for (const p of veri) {
       const s = p.squadra || "senza squadra";
-      if (!o.has(s)) o.set(s, { nome: s, tot: 0, fatti: 0 });
+      if (!o.has(s)) o.set(s, { nome: s, tot: 0, segnati: 0 });
       const v = o.get(s);
       v.tot++;
-      if (m(p.id).interesse > 0) v.fatti++;
+      if (segnato(p.id)) v.segnati++;
     }
     return [...o.values()].sort((a, b) => a.nome.localeCompare(b.nome));
-  }, [players, m]);
+  }, [players, m, legaAttiva]);
 
-  const scelta = squadra || squadre[0]?.nome || null;
-
-  const legaNome = (leghe.find((l) => l.id === legaAttiva) || {}).nome || "questo campionato";
+  const scelta = squadra || squadre.find((s) => s.segnati)?.nome || squadre[0]?.nome || null;
+  /* fissiamo la squadra al primo giro, altrimenti togliendo l'ultimo di una squadra
+     la lista salterebbe da sola su un'altra e non si capirebbe piu' niente */
+  useEffect(() => { if (!squadra && scelta) setSquadra(scelta); }, [scelta]);
 
   const ordineRuolo = { P: 0, D: 1, C: 2, A: 3 };
   const elenco = useMemo(() => veri
     .filter((p) => (p.squadra || "senza squadra") === scelta)
+    .filter((p) => segnato(p.id))
     .filter((p) => !nascondiPresi || statoIn(p.id, legaAttiva) === "libero")
     .sort((a, b) => (ordineRuolo[a.r] ?? 9) - (ordineRuolo[b.r] ?? 9) || quotaDi(b, mantraAttivo) - quotaDi(a, mantraAttivo)),
     [veri, scelta, nascondiPresi, legaAttiva, mantraAttivo]);
@@ -1316,15 +1323,16 @@ function Papabili({ players, m, setM, leghe, legaAttiva, statoIn, prezzoIn, libe
     );
   }
 
-  const daFare = squadre.reduce((n, s) => n + (s.tot - s.fatti), 0);
+  const totSegnati = squadre.reduce((n, s) => n + s.segnati, 0);
 
   return (
     <>
       <div style={{ background: C.inchiostro, color: C.carta, borderRadius: 3, padding: "10px 12px" }}>
-        <div style={{ fontSize: 15, fontWeight: 800 }}>Squadra per squadra</div>
+        <div style={{ fontSize: 15, fontWeight: 800 }}>I tuoi segnati, squadra per squadra</div>
         <div style={{ fontSize: 12.5, lineHeight: 1.45, marginTop: 4, opacity: .9 }}>
-          Tocca il giudizio sotto il nome. Ritoccando quello acceso lo togli.
-          Ti restano {daFare} giocatori senza giudizio.
+          {totSegnati === 0
+            ? `Non hai ancora segnato nessuno per ${legaNome}. Vai nel Listone e accendi il quadratino accanto ai giocatori che ti interessano.`
+            : `Hai ${totSegnati} giocatori segnati per ${legaNome}. Il tasto meno li toglie, i giudizi si cambiano da qui.`}
         </div>
       </div>
 
@@ -1332,10 +1340,12 @@ function Papabili({ players, m, setM, leghe, legaAttiva, statoIn, prezzoIn, libe
       <div className="flex gap-1 flex-wrap" style={{ marginTop: 10 }}>
         {squadre.map((s) => (
           <Btn key={s.nome} piccolo attivo={s.nome === scelta} onClick={() => setSquadra(s.nome)}
-            title={`${s.fatti} su ${s.tot} giudicati`}>
-            {s.nome}
-            <span style={{ ...mono, fontSize: 9, marginLeft: 4, opacity: s.nome === scelta ? .8 : .55 }}>
-              {s.fatti}/{s.tot}
+            title={`${s.segnati} segnati su ${s.tot} giocatori`}>
+            <span style={{ opacity: s.segnati || s.nome === scelta ? 1 : .45 }}>{s.nome}</span>
+            <span style={{ ...mono, fontSize: 9.5, marginLeft: 4, fontWeight: 800,
+              color: s.nome === scelta ? "inherit" : (s.segnati ? C.rosa : C.inchiostroTenue),
+              opacity: s.segnati ? 1 : .45 }}>
+              {s.segnati}
             </span>
           </Btn>
         ))}
@@ -1352,7 +1362,7 @@ function Papabili({ players, m, setM, leghe, legaAttiva, statoIn, prezzoIn, libe
       <div style={{ background: "#fff", border: `1px solid ${C.riga}`, borderRadius: 3 }}>
         {!elenco.length && (
           <div style={{ padding: 20, textAlign: "center", ...mono, fontSize: 12, color: C.inchiostroTenue }}>
-            Nessun giocatore da mostrare per {scelta}
+            Nessun segnato del {scelta} per {legaNome}
           </div>
         )}
         {elenco.map((p) => {
@@ -2680,7 +2690,7 @@ function Guida() {
       <Blocco titolo="Le sei schede" sotto="a cosa serve ognuna">
         <Elenco voci={[
           <><b>Listone</b>, l'elenco di tutti i giocatori. Qui ci passi le sere prima dell'asta.</>,
-          <><b>Papabili</b>, gli stessi giocatori ma divisi per squadra, per dare i giudizi in fretta.</>,
+          <><b>Papabili</b>, solo i giocatori che hai segnato, divisi per squadra, per sfoltire in fretta.</>,
           <><b>Asta live</b>, da usare mentre l'asta è in corso. Segni chi prendi e a quanto.</>,
           <><b>Campo</b>, per vedere che squadra viene fuori da quello che hai comprato.</>,
           <><b>Probabili</b>, chi gioca davvero domenica, squadra per squadra.</>,
@@ -2708,25 +2718,23 @@ function Guida() {
         ]} />
       </Blocco>
 
-      <Blocco titolo="Papabili" sotto="la sgrossata, squadra per squadra">
-        Il Listone serve a cercare un giocatore preciso. I <b>Papabili</b> servono a fare il giro
-        completo prima dell'asta, senza dimenticare nessuno e senza aprire una scheda alla volta.
+      <Blocco titolo="Papabili" sotto="i tuoi segnati, squadra per squadra">
+        Qui non c'è tutto il listone. Ci sono <b>solo i giocatori che hai segnato</b> per il
+        campionato acceso in cima, cioè quelli col quadratino numerato acceso nel Listone.
+        È la tua lista della spesa, divisa per squadra.
         <Elenco voci={[
-          <>In cima ci sono <b>tutte le squadre</b>. Accanto a ognuna un numero tipo 4 su 25, cioè quanti ne hai già giudicati. Quando arrivi in fondo hai finito quella squadra.</>,
-          <>Toccandone una, sotto escono <b>solo i suoi giocatori</b>, in ordine di ruolo e poi di quota.</>,
-          <>Sotto ogni nome ci sono i <b>cinque giudizi</b>. Un tocco lo metti, ritoccando quello acceso lo togli.</>,
-          <>Il giudizio è lo stesso di sempre, quindi quello che metti qui lo ritrovi nel Listone, nell'Asta live e nella simulazione del Campo.</>,
-          <><b>Nascondi presi</b> toglie chi è già stato assegnato nel campionato che stai guardando.</>,
-          <>Tutta la scheda parla del <b>campionato che hai scelto in cima</b>, quello col riquadro acceso. Cambiando campionato lassù cambia tutto quello che vedi qui.</>,
-          <>A destra dei numeri, in rosa, c'è il <b>max</b> che ti sei dato per quel campionato. Compare solo se l'hai messo.</>,
-          <>Sotto al max, il tasto <b>−</b> lo <b>toglie da quel campionato</b>. Compare solo se ce l'hai segnato. Gli altri campionati non li tocca.</>,
-          <>La <b>freccetta</b> a destra apre una tendina con la spunta del campionato, il suo max, le etichette e le note. È la scheda del giocatore in miniatura.</>,
-          <>Se in quel campionato è già stato comprato, al posto del max trovi il prezzo e un <b>−</b> che lo rimette libero.</>,
-          <>Toccando il <b>nome</b> si apre comunque la scheda completa, con quotazioni e statistiche.</>,
+          <>In cima ci sono tutte le squadre con accanto <b>quanti ne hai segnati</b>. Quelle a zero restano in grigio chiaro, quelle dove hai qualcuno hanno il numero in rosa.</>,
+          <>Toccandone una escono i tuoi di quella squadra, in ordine di ruolo e poi di quota.</>,
+          <>Sotto ogni nome i <b>cinque giudizi</b>. Un tocco lo metti, ritoccando quello acceso lo togli.</>,
+          <>A destra, in rosa, il <b>max</b> che ti sei dato per quel campionato. Compare solo se l'hai messo.</>,
+          <>Sotto al max il tasto <b>−</b>, che lo <b>toglie da quel campionato</b> e quindi lo fa sparire da questa lista. Gli altri campionati non li tocca, e il giudizio resta.</>,
+          <>La <b>freccetta</b> apre una tendina con la spunta del campionato, il suo max, le etichette e le note.</>,
+          <>Se in quel campionato l'hai già comprato, al posto del max trovi il prezzo e un <b>−</b> che lo rimette libero.</>,
+          <>Toccando il <b>nome</b> si apre la scheda completa, con quotazioni e statistiche.</>,
         ]} />
         <div style={{ ...mono, fontSize: 11, color: C.inchiostroTenue, marginTop: 8, lineHeight: 1.5 }}>
-          In cima al pannello c'è quanti giocatori ti restano senza giudizio in tutto.
-          È il modo più onesto per sapere quanto sei indietro con la preparazione.
+          Cambiando campionato dal riquadro in alto cambia tutta la scheda, perché i segnati
+          sono separati per campionato. Se una lista ti sembra vuota, controlla quale campionato hai acceso.
         </div>
       </Blocco>
 
