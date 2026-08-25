@@ -1165,13 +1165,6 @@ export default function App() {
           })}
         </div>
 
-        {leghe.length > 1 && (
-          <div style={{ ...mono, fontSize: 10, color: C.inchiostroTenue, marginTop: 5, letterSpacing: ".04em" }}>
-            <b style={{ color: C.rosa }}>★</b> campionato principale, decide se le quote sono classic o mantra
-            {vista === "papabili" ? ". Qui in Papabili puoi tenerne accesi più di uno" : ""}
-          </div>
-        )}
-
         <nav className="flex gap-1 mt-3 barra">
           {[["listone", "Listone"], ["papabili", "Papabili"], ["asta", "Asta live"], ["campo", "Campo"], ["probabili", "Probabili"], ["dati", "Dati"], ["guida", "Guida"]].map(([k, v]) => (
             <Btn key={k} attivo={vista === k} onClick={() => setVista(k)}>{v}</Btn>
