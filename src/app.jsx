@@ -1382,6 +1382,10 @@ function Papabili({ players, m, setM, leghe, legaAttiva, legheScelte, setLegheSc
   /* Quali squadre di serie A. Tutte spente vuol dire tutte quante, ed e' cosi' che si parte. */
   const [squadreScelte, setSquadreScelte] = useState([]);
   const [nascondiPresi, setNascondiPresi] = useState(false);
+  /* gli stessi filtri del Listone, perche' quando i segnati sono tanti servono anche qui */
+  const [cerca, setCerca] = useState("");
+  const [filtroRuolo, setFiltroRuolo] = useState("TUTTI");
+  const [ordine, setOrdine] = useState("ruolo");
   /* una tendina aperta alla volta, altrimenti la pagina diventa illeggibile */
   const [aperto, setAperto] = useState(null);
   const [tagNuovo, setTagNuovo] = useState("");
@@ -1417,15 +1421,27 @@ function Papabili({ players, m, setM, leghe, legaAttiva, legheScelte, setLegheSc
   }, [players, m, legheScelte, leghe]);
 
   const ordineRuolo = { P: 0, D: 1, C: 2, A: 3 };
-  const elenco = useMemo(() => veri
-    .filter((p) => !squadreScelte.length || squadreScelte.includes(p.squadra || "senza squadra"))
-    .filter((p) => segnato(p.id))
-    .filter((p) => !nascondiPresi || !tuttoPreso(p.id))
-    .sort((a, b) =>
+  const elenco = useMemo(() => {
+    const t = cerca.trim().toLowerCase();
+    const perRuolo = (a, b) =>
       (a.squadra || "").localeCompare(b.squadra || "") ||
       (ordineRuolo[a.r] ?? 9) - (ordineRuolo[b.r] ?? 9) ||
-      quotaDi(b, mantraAttivo) - quotaDi(a, mantraAttivo)),
-    [veri, squadreScelte, nascondiPresi, legheScelte, leghe, mantraAttivo, m]);
+      quotaDi(b, mantraAttivo) - quotaDi(a, mantraAttivo);
+    const come = {
+      ruolo: perRuolo,
+      quota: (a, b) => quotaDi(b, mantraAttivo) - quotaDi(a, mantraAttivo),
+      fvm: (a, b) => valoreDi(b, mantraAttivo) - valoreDi(a, mantraAttivo),
+      titolarita: (a, b) => percDi(probPerId, b.id) - percDi(probPerId, a.id) || perRuolo(a, b),
+      nome: (a, b) => (a.nome || "").localeCompare(b.nome || ""),
+    }[ordine] || perRuolo;
+    return veri
+      .filter((p) => !squadreScelte.length || squadreScelte.includes(p.squadra || "senza squadra"))
+      .filter((p) => segnato(p.id))
+      .filter((p) => !nascondiPresi || !tuttoPreso(p.id))
+      .filter((p) => filtroRuolo === "TUTTI" || p.r === filtroRuolo)
+      .filter((p) => !t || (p.nome || "").toLowerCase().includes(t) || (p.squadra || "").toLowerCase().includes(t))
+      .sort(come);
+  }, [veri, squadreScelte, nascondiPresi, legheScelte, leghe, mantraAttivo, m, cerca, filtroRuolo, ordine, probPerId]);
 
   if (!veri.length) {
     return (
@@ -1501,6 +1517,24 @@ function Papabili({ players, m, setM, leghe, legaAttiva, legheScelte, setLegheSc
         })}
       </div>
 
+      {/* gli stessi filtri del Listone */}
+      <input
+        value={cerca} onChange={(e) => setCerca(e.target.value)}
+        placeholder="Cerca tra i tuoi segnati"
+        style={{ width: "100%", marginTop: 10, padding: "8px 10px", border: `1.5px solid ${C.riga}`, background: "#fff", borderRadius: 3, fontSize: 14.5, ...display }}
+      />
+      <div className="flex gap-1 mt-2 flex-wrap">
+        {["TUTTI", ...RUOLI_C].map((r) => (
+          <Btn key={r} piccolo attivo={filtroRuolo === r} onClick={() => setFiltroRuolo(r)}>{r}</Btn>
+        ))}
+      </div>
+      <div className="flex gap-1 mt-1 flex-wrap items-center">
+        <span style={{ ...mono, fontSize: 10, color: C.inchiostroTenue, textTransform: "uppercase" }}>ordina</span>
+        {[["ruolo", "ruolo"], ["quota", "quota"], ["fvm", "fvm"], ["titolarita", "titolarità"], ["nome", "nome"]].map(([k, v]) => (
+          <Btn key={k} piccolo attivo={ordine === k} onClick={() => setOrdine(k)}>{v}</Btn>
+        ))}
+      </div>
+
       <div className="flex gap-1 items-center flex-wrap" style={{ margin: "10px 0 4px" }}>
         <Btn piccolo attivo={nascondiPresi} onClick={() => setNascondiPresi(!nascondiPresi)}>nascondi presi</Btn>
         {squadreScelte.length > 0 && (
@@ -1518,9 +1552,11 @@ function Papabili({ players, m, setM, leghe, legaAttiva, legheScelte, setLegheSc
           <div style={{ padding: 20, textAlign: "center", ...mono, fontSize: 12, color: C.inchiostroTenue }}>
             {!legheAccese.length
               ? "Accendi un campionato dalle carte in testata"
-              : squadreScelte.length
-                ? "Nessun segnato in queste squadre"
-                : "Nessun segnato per " + etichettaLeghe()}
+              : cerca.trim() || filtroRuolo !== "TUTTI"
+                ? "Nessun segnato con questi filtri"
+                : squadreScelte.length
+                  ? "Nessun segnato in queste squadre"
+                  : "Nessun segnato per " + etichettaLeghe()}
           </div>
         )}
         {elenco.map((p) => {
@@ -1750,12 +1786,11 @@ function AstaLive(props) {
     setTarget(null); setPrezzo(""); setQ(""); setChiedoChi(false); setRivaleNuovo("");
   }
 
-  /* Il tasto a un altro. Se gli avversari li hai scritti, prima chiede di chi e',
-     se non li hai scritti assegna e basta, come faceva prima. */
+  /* Il tasto a un altro chiede sempre di chi e'. Se per questo campionato le
+     squadre non le hai ancora registrate te lo dice, invece di assegnare al buio. */
   function aUnAltro() {
     const pz = parseInt(prezzo || "0", 10);
     if (!target || !pz) return;
-    if (!rivali.length) { conferma("altrui"); return; }
     setChiedoChi(true);
   }
 
@@ -1981,6 +2016,16 @@ function AstaLive(props) {
                   annulla
                 </button>
               </div>
+              {/* se non ne hai registrata nessuna, lo diciamo invece di lasciarti al buio */}
+              {rivali.length === 0 && (
+                <div style={{ background: "rgba(200,137,42,.16)", border: `1px solid ${C.ocra}`,
+                  borderRadius: 3, padding: "8px 10px", marginTop: 6, fontSize: 12.5, lineHeight: 1.45 }}>
+                  Per <b>{L.nome}</b> non hai ancora registrato nessuna squadra avversaria.
+                  Le scrivi nel pannello <b>Dati</b>, riquadro <b>Gli altri della lega</b>, oppure
+                  qui sotto una alla volta mentre l'asta va.
+                </div>
+              )}
+
               <div className="flex gap-1 flex-wrap" style={{ marginTop: 6 }}>
                 {rivali.map((r) => {
                   const suo = asta(legaAttiva).altrui.filter((x) => x.team === r.id);
@@ -2791,16 +2836,16 @@ function Dati({ importaFile, importaProbabili, probabili, setProbabili, players,
       <div style={{ background: "#fff", border: `1px solid ${C.riga}`, borderRadius: 3, padding: 12, marginTop: 10 }}>
         <div style={{ fontSize: 15, fontWeight: 800 }}>I tuoi campionati</div>
         <div style={{ fontSize: 12.5, color: C.inchiostroTenue, marginTop: 4, lineHeight: 1.45 }}>
-          Nome, crediti a disposizione e regolamento. Puoi tenerne uno solo oppure fino a {LEGHE_MAX},
+          Crediti a disposizione e regolamento. Puoi tenerne uno solo oppure fino a {LEGHE_MAX},
           il giudizio sui giocatori resta comunque uno e vale per tutti.
+          Il <b>nome</b> si cambia dalla testata, toccando il nome del campionato con la stella.
         </div>
         {leghe.map((l) => (
           <div key={l.id} className="flex items-center gap-2 mt-2">
-            <input
-              value={l.nome}
-              onChange={(e) => setLeghe(leghe.map((x) => x.id === l.id ? { ...x, nome: e.target.value } : x))}
-              style={{ flex: 1, minWidth: 0, padding: "6px 8px", border: `1px solid ${C.riga}`, borderRadius: 2, fontSize: 13, ...display }}
-            />
+            <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 700,
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {l.nome}
+            </span>
             <input
               value={l.budget} inputMode="numeric"
               onChange={(e) => setLeghe(leghe.map((x) => x.id === l.id ? { ...x, budget: parseInt(e.target.value || 0, 10) } : x))}
@@ -2858,19 +2903,16 @@ function Dati({ importaFile, importaProbabili, probabili, setProbabili, players,
                     onChange={(e) => rinominaRivale(l.id, r.id, e.target.value)}
                     style={{ flex: 1, minWidth: 0, padding: "6px 8px", border: `1px solid ${C.riga}`, borderRadius: 2, fontSize: 13, ...display }}
                   />
-                  <button
+                  <Btn piccolo tono="rosa" title={"togli " + r.nome}
                     onClick={() => {
                       const suoi = (aste[l.id]?.altrui || []).filter((x) => x.team === r.id).length;
                       const avviso = suoi
                         ? `Tolgo ${r.nome}. I ${suoi} giocatori che gli avevi assegnato restano, ma finiscono tra quelli presi da non so chi.`
                         : `Tolgo ${r.nome} da ${l.nome}`;
                       if (confirm(avviso)) togliRivale(l.id, r.id);
-                    }}
-                    title={"togli " + r.nome}
-                    style={{ ...mono, fontSize: 15, lineHeight: 1, color: C.inchiostroTenue,
-                      border: `1px solid ${C.riga}`, borderRadius: 2, padding: "4px 9px", background: "#fff" }}>
-                    −
-                  </button>
+                    }}>
+                    − togli
+                  </Btn>
                 </div>
               ))}
               <div className="flex gap-2 mt-2">
@@ -2887,6 +2929,7 @@ function Dati({ importaFile, importaProbabili, probabili, setProbabili, players,
           );
         })}
         <div style={{ ...mono, fontSize: 11, color: C.inchiostroTenue, marginTop: 10, lineHeight: 1.5 }}>
+          Il nome si corregge scrivendoci sopra, e il tasto <b>togli</b> la elimina.
           Il budget è lo stesso per tutti, è quello del campionato qui sopra. Rinominare una squadra
           non stacca i giocatori che le avevi assegnato.
         </div>
@@ -3214,6 +3257,7 @@ function Guida() {
         <Elenco voci={[
           <>I campionati si accendono e si spengono <b>dalle carte in testata</b>, quelle con i crediti. Solo in questa scheda puoi tenerne accesi <b>più di uno</b>, e escono i segnati di tutti quelli accesi in una lista sola. In tutte le altre schede resta acceso uno solo, come sempre.</>,
           <>Il tasto <b>tutti</b> è la scorciatoia per accenderli in un colpo, e ripremendolo torni a uno solo. Accanto c'è scritto quali sono accesi in quel momento.</>,
+          <>Sotto ci sono gli stessi <b>filtri del Listone</b>. La ricerca per nome, i tasti dei ruoli e l'ordinamento, che qui parte per ruolo e può passare a quota, fvm, titolarità o nome.</>,
           <>La fila <b>squadre</b> filtra per squadra di serie A, e accanto a ogni nome c'è quanti ne hai segnati. <b>Da spente vogliono dire tutte</b>, ed è così che si parte. Accendine due o tre se vuoi confrontarle.</>,
           <>Uscendo da questa scheda la testata torna da sola a un campionato solo, quindi non ti ritrovi selezioni strane nel Listone o in Asta live.</>,
         ]} />
@@ -3323,7 +3367,7 @@ function Guida() {
           <>Se giochi più di un campionato, i tastini con i nomi ti fanno <b>sbirciare la rosa di un'altra lega</b> senza uscire dall'asta che stai facendo. Serve per ricordarti cosa hai già preso altrove prima di rilanciare.</>,
           <><b>Se hai segnato per sbaglio</b>, riscrivi il suo nome nella barra della ricerca. L'elenco normale nasconde chi è già stato assegnato, quindi ricompare più sotto, nel riquadro <b>già assegnati</b>, con il tasto <b>−</b>. Vale anche per quelli comprati dagli altri.</>,
           <>Il meno lo rimette libero e ti ridà i crediti, e tocca solo il campionato che stai guardando.</>,
-          <>Premendo <b>a un altro</b>, se hai scritto i nomi degli avversari, ti viene chiesto <b>di chi è</b>. Accanto a ogni nome c'è quanto gli resta. Se è uno che non avevi previsto lo scrivi lì e viene aggiunto al volo, e se non hai voglia di saperlo c'è <b>non so chi</b>.</>,
+          <>Premendo <b>a un altro</b> ti viene sempre chiesto <b>di chi è</b>, con un tasto per ogni squadra avversaria e accanto quanto le resta. Se per quel campionato non ne hai ancora registrata nessuna te lo dice, e le scrivi lì al volo. Se non hai voglia di saperlo c'è <b>non so chi</b>.</>,
         ]} />
       </Blocco>
 
@@ -3413,7 +3457,7 @@ function Guida() {
       <Blocco titolo="Dati" sotto="impostazioni">
         <Elenco voci={[
           <>Quando l'amministratore ricarica le <b>quotazioni</b> della stagione in corso, il listone viene riallineato a quel file. Chi ha lasciato la serie A sparisce, così non resta in giro con la squadra dell'anno prima.</>,
-          <>I <b>campionati</b> si aggiungono col più e si tolgono col meno, da uno a sei. Nome, crediti e regolamento si cambiano quando vuoi, anche a asta iniziata.</>,
+          <>I <b>campionati</b> si aggiungono col più e si tolgono col meno, da uno a sei. Crediti e regolamento si cambiano quando vuoi, anche a asta iniziata. Il nome no, quello si cambia dalla testata.</>,
           <>Il nome si cambia anche <b>dalla testata</b>. Tocca il nome del campionato principale, quello con la stella, e diventa scrivibile. Chiamali come si chiamano davvero, è più facile che Campionato 1 e Campionato 2.</>,
           <>La <b>stella</b> dice qual è il campionato principale. È quello che decide se le quote che leggi sono classic o mantra, quindi se hai un campionato mantra e vuoi le sue quote, mettici la stella.</>,
           <><b>Gli altri della lega</b> sono i nomi delle squadre con cui giochi, uno per riga e separati per campionato. Servono all'asta e alla scheda Aste Tracker. Togliendone una i suoi acquisti restano, ma finiscono tra quelli presi da non so chi.</>,
