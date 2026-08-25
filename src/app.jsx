@@ -1271,21 +1271,36 @@ function Listone(props) {
    alla volta. Un tocco mette il giudizio, ritoccando lo stesso lo toglie.
 ------------------------------------------------------------------ */
 function Papabili({ players, m, setM, leghe, legaAttiva, statoIn, prezzoIn, liberaGiocatore, mantraAttivo, rigoristi, probPerId, nLeghe, setSel }) {
-  const [squadra, setSquadra] = useState(null);
+  /* Quali campionati stiamo guardando. Si parte da quello scelto nella testata,
+     ma qui se ne possono tenere accesi due o tutti insieme. */
+  const [legheScelte, setLegheScelte] = useState([legaAttiva]);
+  /* Quali squadre di serie A. Tutte spente vuol dire tutte quante, ed e' cosi' che si parte. */
+  const [squadreScelte, setSquadreScelte] = useState([]);
   const [nascondiPresi, setNascondiPresi] = useState(false);
   /* una tendina aperta alla volta, altrimenti la pagina diventa illeggibile */
   const [aperto, setAperto] = useState(null);
   const [tagNuovo, setTagNuovo] = useState("");
 
+  /* se cambi campionato dalla testata, il pannello ti segue */
+  useEffect(() => { setLegheScelte([legaAttiva]); }, [legaAttiva]);
+
   /* qui teniamo anche i giocatori di prova, come fa il listone, altrimenti
      chi apre l'app prima dell'import trova la scheda vuota */
   const veri = players;
-  const legaNome = (leghe.find((l) => l.id === legaAttiva) || {}).nome || "questo campionato";
 
-  /* Qui non sta tutto il listone. Stanno solo i giocatori che hai segnato per il
-     campionato scelto in cima, cioe' quelli col quadratino acceso nel Listone.
-     Per ogni squadra contiamo quanti ne hai segnati. */
-  const segnato = (id) => !!m(id).leghe?.[legaAttiva];
+  const legheAccese = leghe.filter((l) => legheScelte.includes(l.id));
+  /* il numero del quadratino nel Listone, uno due tre */
+  const numeroLega = (id) => leghe.findIndex((l) => l.id === id) + 1;
+
+  /* In quali dei campionati accesi lo hai segnato. Sono i pin del Listone. */
+  const legheDi = (id) => legheAccese.filter((l) => m(id).leghe?.[l.id]);
+  const segnato = (id) => legheDi(id).length > 0;
+
+  /* preso vuol dire che in tutti i campionati accesi dove lo volevi e' gia' andato a qualcuno */
+  const tuttoPreso = (id) => {
+    const sue = legheDi(id);
+    return sue.length > 0 && sue.every((l) => statoIn(id, l.id) !== "libero");
+  };
 
   const squadre = useMemo(() => {
     const o = new Map();
@@ -1297,20 +1312,18 @@ function Papabili({ players, m, setM, leghe, legaAttiva, statoIn, prezzoIn, libe
       if (segnato(p.id)) v.segnati++;
     }
     return [...o.values()].sort((a, b) => a.nome.localeCompare(b.nome));
-  }, [players, m, legaAttiva]);
-
-  const scelta = squadra || squadre.find((s) => s.segnati)?.nome || squadre[0]?.nome || null;
-  /* fissiamo la squadra al primo giro, altrimenti togliendo l'ultimo di una squadra
-     la lista salterebbe da sola su un'altra e non si capirebbe piu' niente */
-  useEffect(() => { if (!squadra && scelta) setSquadra(scelta); }, [scelta]);
+  }, [players, m, legheScelte, leghe]);
 
   const ordineRuolo = { P: 0, D: 1, C: 2, A: 3 };
   const elenco = useMemo(() => veri
-    .filter((p) => (p.squadra || "senza squadra") === scelta)
+    .filter((p) => !squadreScelte.length || squadreScelte.includes(p.squadra || "senza squadra"))
     .filter((p) => segnato(p.id))
-    .filter((p) => !nascondiPresi || statoIn(p.id, legaAttiva) === "libero")
-    .sort((a, b) => (ordineRuolo[a.r] ?? 9) - (ordineRuolo[b.r] ?? 9) || quotaDi(b, mantraAttivo) - quotaDi(a, mantraAttivo)),
-    [veri, scelta, nascondiPresi, legaAttiva, mantraAttivo]);
+    .filter((p) => !nascondiPresi || !tuttoPreso(p.id))
+    .sort((a, b) =>
+      (a.squadra || "").localeCompare(b.squadra || "") ||
+      (ordineRuolo[a.r] ?? 9) - (ordineRuolo[b.r] ?? 9) ||
+      quotaDi(b, mantraAttivo) - quotaDi(a, mantraAttivo)),
+    [veri, squadreScelte, nascondiPresi, legheScelte, leghe, mantraAttivo, m]);
 
   if (!veri.length) {
     return (
@@ -1324,35 +1337,76 @@ function Papabili({ players, m, setM, leghe, legaAttiva, statoIn, prezzoIn, libe
   }
 
   const totSegnati = squadre.reduce((n, s) => n + s.segnati, 0);
+  const tutteAccese = leghe.length > 0 && legheAccese.length === leghe.length;
+  const nomiAccesi = legheAccese.map((l) => l.nome).join(", ");
+
+  const etichettaLeghe = () => {
+    if (!legheAccese.length) return "nessun campionato acceso";
+    if (tutteAccese) return leghe.length === 1 ? nomiAccesi : "tutti i campionati, " + nomiAccesi;
+    return nomiAccesi;
+  };
 
   return (
     <>
       <div style={{ background: C.inchiostro, color: C.carta, borderRadius: 3, padding: "10px 12px" }}>
         <div style={{ fontSize: 15, fontWeight: 800 }}>I tuoi segnati, squadra per squadra</div>
         <div style={{ fontSize: 12.5, lineHeight: 1.45, marginTop: 4, opacity: .9 }}>
-          {totSegnati === 0
-            ? `Non hai ancora segnato nessuno per ${legaNome}. Vai nel Listone e accendi il quadratino accanto ai giocatori che ti interessano.`
-            : `Hai ${totSegnati} giocatori segnati per ${legaNome}. Il tasto meno li toglie, i giudizi si cambiano da qui.`}
+          {!legheAccese.length
+            ? "Accendi almeno un campionato qui sotto, altrimenti non c'è niente da mostrare."
+            : totSegnati === 0
+              ? `Non hai ancora segnato nessuno per ${etichettaLeghe()}. Vai nel Listone e accendi il quadratino accanto ai giocatori che ti interessano.`
+              : `Hai ${totSegnati} giocatori segnati per ${etichettaLeghe()}. Le squadre spente vogliono dire tutte, e i tasti meno stanno in fondo alla tendina di ogni giocatore.`}
         </div>
       </div>
 
-      {/* le venti squadre, tutte a vista */}
-      <div className="flex gap-1 flex-wrap" style={{ marginTop: 10 }}>
-        {squadre.map((s) => (
-          <Btn key={s.nome} piccolo attivo={s.nome === scelta} onClick={() => setSquadra(s.nome)}
-            title={`${s.segnati} segnati su ${s.tot} giocatori`}>
-            <span style={{ opacity: s.segnati || s.nome === scelta ? 1 : .45 }}>{s.nome}</span>
-            <span style={{ ...mono, fontSize: 9.5, marginLeft: 4, fontWeight: 800,
-              color: s.nome === scelta ? "inherit" : (s.segnati ? C.rosa : C.inchiostroTenue),
-              opacity: s.segnati ? 1 : .45 }}>
-              {s.segnati}
-            </span>
-          </Btn>
-        ))}
+      {/* i tuoi campionati, uno, due o tutti insieme */}
+      <div className="flex gap-1 flex-wrap items-center" style={{ marginTop: 10 }}>
+        <span style={{ ...mono, fontSize: 10, color: C.inchiostroTenue, textTransform: "uppercase", letterSpacing: ".1em", marginRight: 2 }}>
+          campionati
+        </span>
+        <Btn piccolo attivo={tutteAccese}
+          onClick={() => setLegheScelte(tutteAccese ? [] : leghe.map((l) => l.id))}>
+          tutti
+        </Btn>
+        {leghe.map((l, i) => {
+          const on = legheScelte.includes(l.id);
+          return (
+            <Btn key={l.id} piccolo tono="rosa" attivo={on}
+              title={on ? "spegni " + l.nome : "accendi " + l.nome}
+              onClick={() => setLegheScelte(on ? legheScelte.filter((x) => x !== l.id) : [...legheScelte, l.id])}>
+              {i + 1} {l.nome}
+            </Btn>
+          );
+        })}
       </div>
 
-      <div className="flex gap-1 items-center" style={{ margin: "10px 0 4px" }}>
+      {/* le venti squadre, tutte a vista. Spente vuol dire tutte */}
+      <div className="flex gap-1 flex-wrap items-center" style={{ marginTop: 8 }}>
+        <span style={{ ...mono, fontSize: 10, color: C.inchiostroTenue, textTransform: "uppercase", letterSpacing: ".1em", marginRight: 2 }}>
+          squadre
+        </span>
+        {squadre.map((s) => {
+          const on = squadreScelte.includes(s.nome);
+          return (
+            <Btn key={s.nome} piccolo attivo={on}
+              onClick={() => setSquadreScelte(on ? squadreScelte.filter((x) => x !== s.nome) : [...squadreScelte, s.nome])}
+              title={`${s.segnati} segnati su ${s.tot} giocatori`}>
+              <span style={{ opacity: s.segnati || on ? 1 : .45 }}>{s.nome}</span>
+              <span style={{ ...mono, fontSize: 9.5, marginLeft: 4, fontWeight: 800,
+                color: on ? "inherit" : (s.segnati ? C.rosa : C.inchiostroTenue),
+                opacity: s.segnati ? 1 : .45 }}>
+                {s.segnati}
+              </span>
+            </Btn>
+          );
+        })}
+      </div>
+
+      <div className="flex gap-1 items-center flex-wrap" style={{ margin: "10px 0 4px" }}>
         <Btn piccolo attivo={nascondiPresi} onClick={() => setNascondiPresi(!nascondiPresi)}>nascondi presi</Btn>
+        {squadreScelte.length > 0 && (
+          <Btn piccolo onClick={() => setSquadreScelte([])}>spegni le squadre</Btn>
+        )}
         <div style={{ flex: 1 }} />
         <span style={{ ...mono, fontSize: 10.5, color: C.inchiostroTenue, textTransform: "uppercase", letterSpacing: ".1em" }}>
           {elenco.length} giocatori
@@ -1362,15 +1416,20 @@ function Papabili({ players, m, setM, leghe, legaAttiva, statoIn, prezzoIn, libe
       <div style={{ background: "#fff", border: `1px solid ${C.riga}`, borderRadius: 3 }}>
         {!elenco.length && (
           <div style={{ padding: 20, textAlign: "center", ...mono, fontSize: 12, color: C.inchiostroTenue }}>
-            Nessun segnato del {scelta} per {legaNome}
+            {!legheAccese.length
+              ? "Accendi un campionato qui sopra"
+              : squadreScelte.length
+                ? "Nessun segnato in queste squadre"
+                : "Nessun segnato per " + etichettaLeghe()}
           </div>
         )}
         {elenco.map((p) => {
           const mm = m(p.id);
-          const st = statoIn(p.id, legaAttiva);
+          const sue = legheDi(p.id);
           const perc = percDi(probPerId, p.id);
+          const tags = mm.tags || [];
           return (
-            <div key={p.id} style={{ borderBottom: `1px solid ${C.riga}`, padding: "8px 8px 9px", opacity: st === "altro" ? .5 : 1 }}>
+            <div key={p.id} style={{ borderBottom: `1px solid ${C.riga}`, padding: "8px 8px 9px" }}>
               <div className="flex items-center gap-2">
                 <RuoloC r={p.r} />
                 <button onClick={() => setSel(p.id)} className="flex-1 text-left min-w-0">
@@ -1378,29 +1437,27 @@ function Papabili({ players, m, setM, leghe, legaAttiva, statoIn, prezzoIn, libe
                     {p.nome}
                   </div>
                   <div style={{ ...mono, fontSize: 10, color: C.inchiostroTenue, marginTop: 1 }}>
-                    <RuoliM rm={p.rm} />
+                    <span style={{ textTransform: "uppercase", letterSpacing: ".05em" }}>{p.squadra}</span>
+                    {p.rm?.length ? <span style={{ marginLeft: 5 }}><RuoliM rm={p.rm} /></span> : null}
                     {perc ? <b style={{ color: COLORE_FASCIA[fasciaTitolarita(perc)], marginLeft: 5 }}>{perc + "%"}</b> : null}
                     {rigoristi?.[p.id] ? <b style={{ color: C.rosa, marginLeft: 5 }}>{"rig " + rigoristi[p.id]}</b> : null}
-                    {st !== "libero" ? <b style={{ color: st === "mio" ? C.campo : C.inchiostroTenue, marginLeft: 5 }}>
-                      {(st === "mio" ? "tuo" : "preso") + " a " + prezzoIn(p.id, legaAttiva)}
-                    </b> : null}
                     {nLeghe(p.id) > 0 ? <b style={{ color: C.rosa, marginLeft: 5 }}>{"in " + nLeghe(p.id)}</b> : null}
                   </div>
                 </button>
                 <div style={{ ...mono, fontSize: 12.5, fontWeight: 700, textAlign: "right", lineHeight: 1.25 }}>
                   {quotaDi(p, mantraAttivo)}
                   <div style={{ fontSize: 10, fontWeight: 400, color: C.inchiostroTenue }}>{valoreDi(p, mantraAttivo)} fvm</div>
-                  {/* il tetto che ti sei dato, solo per il campionato scelto in cima */}
-                  {mm.max?.[legaAttiva] ? (
-                    <div style={{ fontSize: 11, fontWeight: 700, color: C.rosa }}>max {mm.max[legaAttiva]}</div>
-                  ) : null}
-                  {/* il meno toglie la spunta su questo campionato, non tocca gli altri */}
-                  {mm.leghe[legaAttiva] ? (
-                    <div style={{ marginTop: 3 }}>
-                      <Btn piccolo title={"togli da " + legaNome}
-                        onClick={() => setM(p.id, { leghe: { ...mm.leghe, [legaAttiva]: false } })}>−</Btn>
-                    </div>
-                  ) : null}
+                  {/* una riga per ogni campionato acceso in cui lo vuoi, col tetto o col prezzo pagato */}
+                  {sue.map((l) => {
+                    const st = statoIn(p.id, l.id);
+                    const mx = mm.max?.[l.id];
+                    if (st === "libero" && !mx) return null;
+                    return (
+                      <div key={l.id} style={{ fontSize: 10.5, fontWeight: 700, color: st === "mio" ? C.campo : st === "altrui" ? C.inchiostroTenue : C.rosa }}>
+                        {numeroLega(l.id)} {st === "libero" ? "max " + mx : (st === "mio" ? "tuo " : "preso ") + prezzoIn(p.id, l.id)}
+                      </div>
+                    );
+                  })}
                 </div>
                 <button onClick={() => { setAperto(aperto === p.id ? null : p.id); setTagNuovo(""); }}
                   title="tutto quello che hai scritto su di lui"
@@ -1409,7 +1466,7 @@ function Papabili({ players, m, setM, leghe, legaAttiva, statoIn, prezzoIn, libe
                 </button>
               </div>
 
-              {/* i giudizi, in chiaro, senza aprire la scheda */}
+              {/* i giudizi, in chiaro, senza aprire la tendina */}
               <div className="flex gap-1 flex-wrap" style={{ marginTop: 6 }}>
                 {INTERESSE.filter((i) => i.k > 0).map((i) => {
                   const on = mm.interesse === i.k;
@@ -1427,21 +1484,47 @@ function Papabili({ players, m, setM, leghe, legaAttiva, statoIn, prezzoIn, libe
                 })}
               </div>
 
-              {/* la tendina, con tutto quello che nel resto dell'app sta dentro la scheda */}
+              {/* etichette e note in chiaro, senza aprire niente, perche' sono
+                  la ragione per cui uno se l'era segnato */}
+              {(tags.length > 0 || (mm.note || "").trim()) && (
+                <div style={{ marginTop: 6 }}>
+                  {tags.length > 0 && (
+                    <div className="flex gap-1 flex-wrap">
+                      {tags.map((t) => (
+                        <span key={t} style={{
+                          padding: "2px 8px", borderRadius: 999, fontSize: 10.5, fontWeight: 600, ...display,
+                          border: `1px solid ${C.inchiostro}`, background: C.inchiostro, color: C.carta,
+                        }}>{t}</span>
+                      ))}
+                    </div>
+                  )}
+                  {(mm.note || "").trim() && (
+                    <div style={{ fontSize: 12.5, lineHeight: 1.4, marginTop: tags.length ? 5 : 0,
+                      whiteSpace: "pre-wrap", borderLeft: `2px solid ${C.riga}`, paddingLeft: 7, color: C.inchiostro }}>
+                      {mm.note}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* la tendina, cioe' la scheda del giocatore, per cambiare o togliere */}
               {aperto === p.id && (
                 <div style={{ marginTop: 8, padding: 9, background: C.cartaScura, borderRadius: 3 }}>
                   <div style={{ ...mono, fontSize: 10, color: C.inchiostroTenue, marginBottom: 4, textTransform: "uppercase", letterSpacing: ".1em" }}>
-                    lo voglio in questa asta
+                    in quali aste lo voglio
                   </div>
-                  {leghe.filter((l) => l.id === legaAttiva).map((l) => {
+                  {/* tutti i campionati, non solo quelli accesi, cosi' da qui si toglie e si aggiunge ovunque */}
+                  {leghe.map((l, i) => {
                     const on = !!mm.leghe[l.id];
                     const s2 = statoIn(p.id, l.id);
+                    const acceso = legheScelte.includes(l.id);
                     return (
-                      <div key={l.id} className="flex items-center gap-2" style={{ padding: "3px 0" }}>
+                      <div key={l.id} className="flex items-center gap-2" style={{ padding: "3px 0", opacity: acceso ? 1 : .6 }}>
                         <button onClick={() => setM(p.id, { leghe: { ...mm.leghe, [l.id]: !on } })}
                           style={{ width: 20, height: 20, borderRadius: 2, border: `1.5px solid ${on ? C.rosa : C.riga}`, background: on ? C.rosa : "#fff", color: "#fff", fontSize: 12, fontWeight: 800, flex: "0 0 auto" }}>
-                          {on ? "\u2713" : ""}
+                          {on ? "✓" : ""}
                         </button>
+                        <span style={{ ...mono, fontSize: 10, color: C.inchiostroTenue, fontWeight: 700 }}>{i + 1}</span>
                         <span style={{ flex: 1, fontSize: 12.5, fontWeight: 700, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{l.nome}</span>
                         {s2 === "libero" ? (
                           <>
@@ -1466,10 +1549,10 @@ function Papabili({ players, m, setM, leghe, legaAttiva, statoIn, prezzoIn, libe
 
                   <div style={{ ...mono, fontSize: 10, color: C.inchiostroTenue, margin: "10px 0 4px", textTransform: "uppercase", letterSpacing: ".1em" }}>etichette</div>
                   <div className="flex gap-1 flex-wrap">
-                    {[...new Set([...TAG_SUGGERITI, ...(mm.tags || [])])].map((t) => {
-                      const on = (mm.tags || []).includes(t);
+                    {[...new Set([...TAG_SUGGERITI, ...tags])].map((t) => {
+                      const on = tags.includes(t);
                       return (
-                        <button key={t} onClick={() => setM(p.id, { tags: on ? mm.tags.filter((x) => x !== t) : [...(mm.tags || []), t] })}
+                        <button key={t} onClick={() => setM(p.id, { tags: on ? tags.filter((x) => x !== t) : [...tags, t] })}
                           style={{
                             padding: "3px 8px", borderRadius: 999, fontSize: 10.5, fontWeight: 600, ...display,
                             border: `1px solid ${on ? C.inchiostro : C.riga}`,
@@ -1481,7 +1564,7 @@ function Papabili({ players, m, setM, leghe, legaAttiva, statoIn, prezzoIn, libe
                   <div className="flex gap-2 mt-2">
                     <input value={tagNuovo} onChange={(e) => setTagNuovo(e.target.value)} placeholder="Nuova etichetta"
                       style={{ flex: 1, minWidth: 0, padding: "5px 7px", border: `1px solid ${C.riga}`, borderRadius: 2, fontSize: 12, ...display }} />
-                    <Btn piccolo onClick={() => { if (tagNuovo.trim()) { setM(p.id, { tags: [...(mm.tags || []), tagNuovo.trim()] }); setTagNuovo(""); } }}>aggiungi</Btn>
+                    <Btn piccolo onClick={() => { if (tagNuovo.trim()) { setM(p.id, { tags: [...tags, tagNuovo.trim()] }); setTagNuovo(""); } }}>aggiungi</Btn>
                   </div>
 
                   <div style={{ ...mono, fontSize: 10, color: C.inchiostroTenue, margin: "10px 0 4px", textTransform: "uppercase", letterSpacing: ".1em" }}>note</div>
@@ -1490,6 +1573,23 @@ function Papabili({ players, m, setM, leghe, legaAttiva, statoIn, prezzoIn, libe
                     rows={2} placeholder="Cosa ti sei detto su di lui"
                     style={{ width: "100%", padding: 8, border: `1px solid ${C.riga}`, borderRadius: 3, fontSize: 13, ...display, resize: "vertical" }}
                   />
+
+                  {/* in fondo, i meno. Uno per ogni campionato acceso in cui lo hai segnato */}
+                  {sue.length > 0 && (
+                    <div style={{ borderTop: `1px solid ${C.riga}`, marginTop: 10, paddingTop: 8 }}>
+                      <div style={{ ...mono, fontSize: 10, color: C.inchiostroTenue, marginBottom: 5, textTransform: "uppercase", letterSpacing: ".1em" }}>
+                        toglilo dai campionati accesi
+                      </div>
+                      <div className="flex gap-1 flex-wrap">
+                        {sue.map((l) => (
+                          <Btn key={l.id} piccolo tono="rosa" title={"togli " + p.nome + " da " + l.nome}
+                            onClick={() => setM(p.id, { leghe: { ...mm.leghe, [l.id]: false } })}>
+                            {"− " + numeroLega(l.id) + " " + l.nome}
+                          </Btn>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -2718,23 +2818,29 @@ function Guida() {
         ]} />
       </Blocco>
 
-      <Blocco titolo="Papabili" sotto="i tuoi segnati, squadra per squadra">
-        Qui non c'è tutto il listone. Ci sono <b>solo i giocatori che hai segnato</b> per il
-        campionato acceso in cima, cioè quelli col quadratino numerato acceso nel Listone.
-        È la tua lista della spesa, divisa per squadra.
+      <Blocco titolo="Papabili" sotto="la tua lista della spesa">
+        Qui non c'è tutto il listone. Ci sono <b>solo i giocatori che hai segnato</b>, cioè quelli
+        col quadratino numerato acceso nel Listone. In cima ci sono due file di tasti che decidono
+        cosa vedi.
         <Elenco voci={[
-          <>In cima ci sono tutte le squadre con accanto <b>quanti ne hai segnati</b>. Quelle a zero restano in grigio chiaro, quelle dove hai qualcuno hanno il numero in rosa.</>,
-          <>Toccandone una escono i tuoi di quella squadra, in ordine di ruolo e poi di quota.</>,
-          <>Sotto ogni nome i <b>cinque giudizi</b>. Un tocco lo metti, ritoccando quello acceso lo togli.</>,
-          <>A destra, in rosa, il <b>max</b> che ti sei dato per quel campionato. Compare solo se l'hai messo.</>,
-          <>Sotto al max il tasto <b>−</b>, che lo <b>toglie da quel campionato</b> e quindi lo fa sparire da questa lista. Gli altri campionati non li tocca, e il giudizio resta.</>,
-          <>La <b>freccetta</b> apre una tendina con la spunta del campionato, il suo max, le etichette e le note.</>,
-          <>Se in quel campionato l'hai già comprato, al posto del max trovi il prezzo e un <b>−</b> che lo rimette libero.</>,
+          <>La fila <b>campionati</b> accende i tuoi. Puoi tenerne acceso uno, due o tutti insieme col tasto <b>tutti</b>. Escono i segnati di tutti quelli accesi, in una lista sola.</>,
+          <>La fila <b>squadre</b> filtra per squadra di serie A, e accanto a ogni nome c'è quanti ne hai segnati. <b>Da spente vogliono dire tutte</b>, ed è così che si parte. Accendine due o tre se vuoi confrontarle.</>,
+          <>Cambiando campionato dalla testata, la fila dei campionati si rimette su quello, perché è quello che stai giocando.</>,
+        ]} />
+        <div style={{ marginTop: 9, fontWeight: 600 }}>Cosa c'è su ogni riga</div>
+        <Elenco voci={[
+          <>Nome, squadra, ruoli, la <b>percentuale</b> delle probabili e i rigori, come nel listone.</>,
+          <>Sotto, i <b>cinque giudizi</b>. Un tocco lo metti, ritoccando quello acceso lo togli.</>,
+          <>Sotto ancora, <b>tutte le etichette e le note</b> che gli hai messo, in chiaro, senza aprire niente. Sono la ragione per cui te l'eri segnato, quindi devono stare a vista.</>,
+          <>A destra quota e fvm, e poi <b>una riga per ogni campionato acceso</b>, col numero davanti. Dice il max che ti sei dato oppure, se l'hai già comprato, a quanto è andato.</>,
           <>Toccando il <b>nome</b> si apre la scheda completa, con quotazioni e statistiche.</>,
         ]} />
-        <div style={{ ...mono, fontSize: 11, color: C.inchiostroTenue, marginTop: 8, lineHeight: 1.5 }}>
-          Cambiando campionato dal riquadro in alto cambia tutta la scheda, perché i segnati
-          sono separati per campionato. Se una lista ti sembra vuota, controlla quale campionato hai acceso.
+        <div style={{ marginTop: 9, fontWeight: 600 }}>La freccetta</div>
+        <div>
+          Apre la scheda del giocatore lì dentro, senza cambiare pagina. Trovi <b>tutte le aste</b>,
+          non solo quelle accese, con la spunta e il max di ognuna, poi le etichette e le note da
+          cambiare. In fondo ci sono i tasti <b>meno</b>, uno per ogni campionato acceso in cui l'hai
+          segnato. Ognuno lo toglie da quel campionato e basta, gli altri restano e il giudizio resta.
         </div>
       </Blocco>
 
