@@ -3090,6 +3090,13 @@ function Dati({ importaFile, importaProbabili, probabili, setProbabili, players,
 /* ------------------------------------------------------------------ */
 
 function Probabili({ probabili, players, leghe, m, nLeghe, statoIn, setSel }) {
+  /* due ricerche separate, una per la squadra e una per il giocatore.
+     Quella della squadra tira su anche l'avversario, perche' le squadre
+     arrivano in ordine di partita e quindi stanno a coppie. */
+  const [cercaSq, setCercaSq] = useState("");
+  const [partita, setPartita] = useState("");
+  const tSq = cercaSq.trim().toLowerCase();
+
   /* dal listone ricaviamo Id -> giocatore, serve per aprire la scheda
      e per sapere se e' uno che ti riguarda */
   const perId = useMemo(() => {
@@ -3134,6 +3141,28 @@ function Probabili({ probabili, players, leghe, m, nLeghe, statoIn, setSel }) {
   const miei = [];
   for (const sq of probabili.squadre) for (const g of sq.giocatori) if (tuo(g.id)) miei.push(g);
   const mieiTitolari = miei.filter((g) => fasciaTitolarita(g.perc) === "titolare").length;
+
+  /* Le squadre arrivano nell'ordine delle partite, quindi la 1 e la 2 sono
+     la stessa partita, la 3 e la 4 pure e cosi' via. Cercando una squadra
+     tiriamo su anche la sua avversaria, che e' quella accanto. */
+  const partite = [];
+  for (let i = 0; i < probabili.squadre.length; i += 2) {
+    const casa = probabili.squadre[i], fuori = probabili.squadre[i + 1];
+    partite.push({ chiave: String(i), etichetta: fuori ? `${casa.nome} - ${fuori.nome}` : casa.nome, indici: fuori ? [i, i + 1] : [i] });
+  }
+
+  const daMostrare = (() => {
+    const tutte = probabili.squadre;
+    let dentro = tutte.map((_, i) => i);
+    /* la tendina lascia le due squadre di quella partita */
+    if (partita !== "") {
+      const scelta = partite.find((x) => x.chiave === partita);
+      if (scelta) dentro = dentro.filter((i) => scelta.indici.includes(i));
+    }
+    /* la ricerca lascia una squadra sola, quella che scrivi */
+    if (tSq) dentro = dentro.filter((i) => tutte[i].nome.toLowerCase().includes(tSq));
+    return dentro.map((i) => tutte[i]);
+  })();
 
   const voce = (g) => {
     const q = tuo(g.id);
@@ -3193,8 +3222,37 @@ function Probabili({ probabili, players, leghe, m, nLeghe, statoIn, setSel }) {
         <span style={{ marginLeft: "auto" }}>fondo verde già tuo, fondo rosa da prendere</span>
       </div>
 
+      {/* a sinistra la squadra singola, a destra la partita */}
+      <div className="flex gap-2 flex-wrap" style={{ marginTop: 8 }}>
+        <div className="flex items-center gap-1" style={{ flex: "1 1 190px" }}>
+          <input
+            value={cercaSq} onChange={(e) => setCercaSq(e.target.value)}
+            placeholder="Cerca squadra"
+            style={{ flex: 1, minWidth: 0, padding: "8px 10px", border: `1.5px solid ${C.riga}`, background: "#fff", borderRadius: 3, fontSize: 14, ...display }}
+          />
+          {cercaSq && <Btn piccolo title="pulisci" onClick={() => setCercaSq("")}>×</Btn>}
+        </div>
+        <div className="flex items-center gap-1" style={{ flex: "1 1 190px" }}>
+          <select
+            value={partita} onChange={(e) => setPartita(e.target.value)}
+            style={{ flex: 1, minWidth: 0, padding: "8px 10px", border: `1.5px solid ${C.riga}`, background: "#fff", borderRadius: 3, fontSize: 14, ...display }}>
+            <option value="">Tutte le partite</option>
+            {partite.map((x) => <option key={x.chiave} value={x.chiave}>{x.etichetta}</option>)}
+          </select>
+          {partita !== "" && <Btn piccolo title="tutte le partite" onClick={() => setPartita("")}>×</Btn>}
+        </div>
+      </div>
+
+      {(tSq || partita !== "") && (
+        <div style={{ ...mono, fontSize: 10.5, color: C.inchiostroTenue, margin: "6px 0 0", textTransform: "uppercase", letterSpacing: ".1em" }}>
+          {daMostrare.length
+            ? `${daMostrare.length} squadre su ${probabili.squadre.length}`
+            : "nessuna squadra con questa scelta"}
+        </div>
+      )}
+
       <div className="flex gap-2 flex-wrap" style={{ alignItems: "flex-start" }}>
-        {probabili.squadre.map((sq) => (
+        {daMostrare.map((sq) => (
           <div key={sq.nome} style={{ flex: "1 1 250px", background: "#fff", border: `1px solid ${C.riga}`, borderRadius: 3, marginTop: 8 }}>
             <div className="flex items-baseline justify-between gap-2"
               style={{ borderBottom: `2px solid ${C.inchiostro}`, padding: "7px 9px" }}>
@@ -3402,9 +3460,15 @@ function Guida() {
         <Voce sigla="riserva">Sotto il 45.</Voce>
         <div style={{ marginTop: 8 }}>
           Nella scheda Probabili le squadre escono <b>nell'ordine delle partite</b>, quindi le due che
-          si affrontano stanno una sotto l'altra. I tuoi hanno il fondo colorato, verde se ce l'hai
+          si affrontano stanno una accanto all'altra. I tuoi hanno il fondo colorato, verde se ce l'hai
           già, rosa se lo vuoi, e in cima c'è scritto quanti dei tuoi sono dati titolari.
         </div>
+        <div style={{ marginTop: 8 }}>Sopra le squadre ci sono <b>due modi per restringere</b>.</div>
+        <Elenco voci={[
+          <>A sinistra <b>cerca squadra</b>, e ti lascia <b>solo quella</b>. Basta scrivere qualche lettera.</>,
+          <>A destra la <b>tendina delle partite</b>, dieci voci perché le squadre sono venti. Sceglendone una restano <b>le due che si affrontano</b>.</>,
+          <>Si possono usare insieme, e la × accanto rimette tutto com'era.</>,
+        ]} />
         <div style={{ ...mono, fontSize: 11, color: C.inchiostroTenue, marginTop: 8, lineHeight: 1.5 }}>
           La data e la giornata le dice la pagina di Fantacalcio.it, non il momento in cui il file
           è stato caricato. Se l'aggiornamento è di più di sette giorni fa te lo dice in arancione.
