@@ -1398,6 +1398,21 @@ function Papabili({ players, m, setM, leghe, legaAttiva, legheScelte, setLegheSc
   /* il numero del quadratino nel Listone, uno due tre */
   const numeroLega = (id) => leghe.findIndex((l) => l.id === id) + 1;
 
+  /* Le note scritte per un campionato singolo. Se due o tre campionati hanno
+     la stessa identica nota la scriviamo una volta sola, con davanti i loro
+     numeri, cosi' non si mangia mezza schermata per ripetere la stessa frase. */
+  const noteDeiCampionati = (mm) => {
+    const gruppi = [];
+    for (const l of legheAccese) {
+      const t = (mm.noteLega?.[l.id] || "").trim();
+      if (!t) continue;
+      const g = gruppi.find((x) => x.testo === t);
+      if (g) g.numeri.push(numeroLega(l.id));
+      else gruppi.push({ testo: t, numeri: [numeroLega(l.id)] });
+    }
+    return gruppi;
+  };
+
   /* In quali dei campionati accesi lo hai segnato. Sono i pin del Listone. */
   const legheDi = (id) => legheAccese.filter((l) => m(id).leghe?.[l.id]);
   const segnato = (id) => legheDi(id).length > 0;
@@ -1624,7 +1639,7 @@ function Papabili({ players, m, setM, leghe, legaAttiva, legheScelte, setLegheSc
 
               {/* etichette e note in chiaro, senza aprire niente, perche' sono
                   la ragione per cui uno se l'era segnato */}
-              {(tags.length > 0 || (mm.note || "").trim()) && (
+              {(tags.length > 0 || (mm.note || "").trim() || noteDeiCampionati(mm).length > 0) && (
                 <div style={{ marginTop: 6 }}>
                   {tags.length > 0 && (
                     <div className="flex gap-1 flex-wrap">
@@ -1642,6 +1657,14 @@ function Papabili({ players, m, setM, leghe, legaAttiva, legheScelte, setLegheSc
                       {mm.note}
                     </div>
                   )}
+                  {/* le note di campionato, quelle uguali stanno su una riga sola */}
+                  {noteDeiCampionati(mm).map((g) => (
+                    <div key={g.numeri.join()} style={{ fontSize: 12.5, lineHeight: 1.4, marginTop: 5,
+                      whiteSpace: "pre-wrap", borderLeft: `2px solid ${C.rosa}`, paddingLeft: 7, color: C.inchiostro }}>
+                      <b style={{ ...mono, fontSize: 11, color: C.rosa }}>{g.numeri.join(" ")}</b>
+                      {" " + g.testo}
+                    </div>
+                  ))}
                 </div>
               )}
 
@@ -3393,6 +3416,7 @@ function Guida() {
         <Elenco voci={[
           <>Nome, squadra, ruoli, percentuale delle probabili e rigori. Sotto i <b>cinque giudizi</b>, un tocco lo metti e ritoccandolo lo togli.</>,
           <>Sotto ancora, <b>tutte le etichette e le note</b> in chiaro, senza aprire niente. Sono la ragione per cui te l'eri segnato.</>,
+          <>Le <b>note di campionato</b> escono col numero davanti. Se due campionati hanno la stessa identica nota la scrive una volta sola, tipo <b>1 2 occhio al prezzo</b>, per non ripetersi e non mangiare spazio.</>,
           <>A destra quota, fvm e una riga <b>per ogni campionato acceso</b>, col numero davanti, che dice il max oppure a quanto è andato.</>,
           <>La <b>freccetta</b> apre la scheda lì dentro, con tutte le aste, le etichette e le note. In fondo i tasti <b>meno</b>, uno per campionato acceso, che lo tolgono da quello e basta.</>,
         ]} />
@@ -3513,7 +3537,8 @@ function Guida() {
         <div style={{ fontWeight: 600, margin: "12px 0 6px" }}>Aste, etichette e note</div>
         <Elenco voci={[
           <>La <b>spunta</b> dice che lo vuoi in quel campionato. Il <b>max</b> è il tetto che ti dai, e riappare in asta come promemoria di quello che avevi deciso da lucido.</>,
-          <>Le <b>etichette</b> sono parole brevi da appiccicare in un tocco, e puoi crearne di nuove. Le <b>note</b> sono il posto per scrivere <b>perché</b> avevi deciso una cosa.</>,
+          <>Le <b>etichette</b> sono parole brevi da appiccicare in un tocco, e puoi crearne di nuove. Le <b>note</b> in fondo sono il posto per scrivere <b>perché</b> avevi deciso una cosa, e valgono per tutti i campionati.</>,
+          <>Accanto a ogni campionato c'è una <b>freccetta</b> che apre una <b>nota solo per quel campionato</b>. Serve quando in una lega il prezzo è un altro, o gli avversari sono diversi. La freccetta diventa rosa se quella nota c'è.</>,
         ]} />
       </Blocco>
 
@@ -3581,6 +3606,8 @@ function Guida() {
 /* ------------------------------------------------------------------ */
 
 function Scheda({ p, m, setM, leghe, statoIn, prezzoIn, liberaGiocatore, mantraAttivo, rigoristi, prob, chiudi }) {
+  /* una nota di campionato aperta alla volta, le altre restano chiuse */
+  const [notaAperta, setNotaAperta] = useState(null);
   if (!p) return null;
   const mm = m(p.id);
   const [tagNuovo, setTagNuovo] = useState("");
@@ -3746,29 +3773,47 @@ function Scheda({ p, m, setM, leghe, statoIn, prezzoIn, liberaGiocatore, mantraA
         {leghe.map((l) => {
           const on = !!mm.leghe[l.id];
           const st = statoIn(p.id, l.id);
+          const notaSua = mm.noteLega?.[l.id] || "";
+          const apertaNota = notaAperta === l.id || !!notaSua;
           return (
-            <div key={l.id} className="flex items-center gap-2" style={{ background: "#fff", border: `1px solid ${C.riga}`, borderRadius: 3, padding: "7px 9px", marginBottom: 5 }}>
-              <button onClick={() => setM(p.id, { leghe: { ...mm.leghe, [l.id]: !on } })}
-                style={{ width: 22, height: 22, borderRadius: 2, border: `1.5px solid ${on ? C.rosa : C.riga}`, background: on ? C.rosa : "transparent", color: "#fff", fontSize: 13, fontWeight: 800 }}>
-                {on ? "✓" : ""}
-              </button>
-              <span style={{ flex: 1, fontSize: 13.5, fontWeight: 700 }}>{l.nome}</span>
-              {st === "libero" ? (
-                <>
-                  <span style={{ ...mono, fontSize: 10, color: C.inchiostroTenue }}>max</span>
-                  <input
-                    value={mm.max?.[l.id] || ""} inputMode="numeric"
-                    onChange={(e) => setM(p.id, { max: { ...mm.max, [l.id]: e.target.value.replace(/\D/g, "") } })}
-                    style={{ width: 52, padding: "5px", border: `1px solid ${C.riga}`, borderRadius: 2, ...mono, fontSize: 14, fontWeight: 700, textAlign: "center" }}
-                  />
-                </>
-              ) : (
-                <span className="flex items-center gap-2">
-                  <span style={{ ...mono, fontSize: 11.5, fontWeight: 700, color: st === "mio" ? C.campo : C.inchiostroTenue }}>
-                    {st === "mio" ? "tuo" : "preso"} a {prezzoIn(p.id, l.id)}
+            <div key={l.id} style={{ background: "#fff", border: `1px solid ${C.riga}`, borderRadius: 3, padding: "7px 9px", marginBottom: 5 }}>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setM(p.id, { leghe: { ...mm.leghe, [l.id]: !on } })}
+                  style={{ width: 22, height: 22, borderRadius: 2, border: `1.5px solid ${on ? C.rosa : C.riga}`, background: on ? C.rosa : "transparent", color: "#fff", fontSize: 13, fontWeight: 800, flex: "0 0 auto" }}>
+                  {on ? "✓" : ""}
+                </button>
+                <span style={{ flex: 1, fontSize: 13.5, fontWeight: 700, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{l.nome}</span>
+                {st === "libero" ? (
+                  <>
+                    <span style={{ ...mono, fontSize: 10, color: C.inchiostroTenue }}>max</span>
+                    <input
+                      value={mm.max?.[l.id] || ""} inputMode="numeric"
+                      onChange={(e) => setM(p.id, { max: { ...mm.max, [l.id]: e.target.value.replace(/\D/g, "") } })}
+                      style={{ width: 52, padding: "5px", border: `1px solid ${C.riga}`, borderRadius: 2, ...mono, fontSize: 14, fontWeight: 700, textAlign: "center" }}
+                    />
+                  </>
+                ) : (
+                  <span className="flex items-center gap-2">
+                    <span style={{ ...mono, fontSize: 11.5, fontWeight: 700, color: st === "mio" ? C.campo : C.inchiostroTenue }}>
+                      {st === "mio" ? "tuo" : "preso"} a {prezzoIn(p.id, l.id)}
+                    </span>
+                    <Btn piccolo title="rimuovi l'acquisto" onClick={() => liberaGiocatore(p.id, l.id)}>−</Btn>
                   </span>
-                  <Btn piccolo title="rimuovi l'acquisto" onClick={() => liberaGiocatore(p.id, l.id)}>−</Btn>
-                </span>
+                )}
+                {/* la nota di questo campionato, sta chiusa finche' non serve */}
+                <button title={"nota per " + l.nome}
+                  onClick={() => setNotaAperta(notaAperta === l.id ? null : l.id)}
+                  style={{ ...mono, fontSize: 12, fontWeight: 700, color: notaSua ? C.rosa : C.inchiostroTenue, padding: "2px 4px", flex: "0 0 auto" }}>
+                  {apertaNota ? "▾" : "▸"}
+                </button>
+              </div>
+              {apertaNota && (
+                <textarea
+                  value={notaSua} rows={2}
+                  onChange={(e) => setM(p.id, { noteLega: { ...(mm.noteLega || {}), [l.id]: e.target.value } })}
+                  placeholder={"Nota solo per " + l.nome}
+                  style={{ width: "100%", marginTop: 6, padding: 7, border: `1px solid ${C.riga}`, borderRadius: 3, fontSize: 12.5, ...display, resize: "vertical" }}
+                />
               )}
             </div>
           );
@@ -3796,7 +3841,7 @@ function Scheda({ p, m, setM, leghe, statoIn, prezzoIn, liberaGiocatore, mantraA
         </div>
 
         {/* note */}
-        <div style={{ ...mono, fontSize: 10, color: C.inchiostroTenue, margin: "12px 0 4px", textTransform: "uppercase", letterSpacing: ".1em" }}>note</div>
+        <div style={{ ...mono, fontSize: 10, color: C.inchiostroTenue, margin: "12px 0 4px", textTransform: "uppercase", letterSpacing: ".1em" }}>note, valgono per tutti i campionati</div>
         <textarea
           value={mm.note || ""} onChange={(e) => setM(p.id, { note: e.target.value })}
           rows={3} placeholder="Cosa ti sei detto su di lui"
