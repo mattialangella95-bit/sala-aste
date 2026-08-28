@@ -2312,6 +2312,16 @@ function caselleDelModulo(modulo, mantra) {
   return out;
 }
 
+/* ------------------------------------------------------------------
+   VISTA CAMPO
+   La rosa e la simulazione sono una sola, valgono per tutte le prove.
+   Ogni prova e' una formazione a se', col suo modulo e i suoi undici,
+   e stanno una sotto l'altra cosi' si confrontano a occhio.
+
+   Come stanno salvate. La prima prova resta dov'era, cioe' in
+   formazioni[lega], per non rompere i profili gia' salvati. Le altre
+   stanno in formazioni[lega].altre, che prima non c'era.
+------------------------------------------------------------------ */
 function Campo({ lega, legaAttiva, asta, players, mdTab, setLeghe, leghe, formazioni, setFormazioni, m, statoIn }) {
   const L = lega(legaAttiva);
   const mantra = L.modalita === "mantra";
@@ -2320,22 +2330,21 @@ function Campo({ lega, legaAttiva, asta, players, mdTab, setLeghe, leghe, formaz
   const F = formazioni[legaAttiva] || { modo: "auto", modulo: mantra ? "3-5-2" : "3-4-3", slots: [] };
   const setF = (patch) => setFormazioni((p) => ({ ...p, [legaAttiva]: { ...F, ...patch } }));
 
-  useEffect(() => {
-    if (!moduli.includes(F.modulo)) setF({ modulo: moduli[0], slots: [] });
-  }, [mantra, legaAttiva]);
+  /* la prima prova e' F stessa, le altre stanno nel cassetto accanto */
+  const altre = F.altre || [];
+  const prove = [{ modo: F.modo, modulo: F.modulo, slots: F.slots, nome: F.nome }, ...altre];
 
-  const modulo = moduli.includes(F.modulo) ? F.modulo : moduli[0];
-  const manuale = F.modo === "manuale";
-  const caselle = caselleDelModulo(modulo, mantra);
-  const slots = caselle.map((c) => c.slot);
+  const setProva = (i, patch) => {
+    if (i === 0) setF(patch);
+    else setF({ altre: altre.map((a, k) => (k === i - 1 ? { ...a, ...patch } : a)) });
+  };
+  const aggiungiProva = () => setF({ altre: [...altre, { modo: "manuale", modulo: prove[0].modulo, slots: [], nome: "" }] });
+  const duplicaProva = (i) => setF({ altre: [...altre, { ...prove[i], nome: (prove[i].nome || `Prova ${i + 1}`) + " copia" }] });
+  const eliminaProva = (i) => { if (i > 0) setF({ altre: altre.filter((_, k) => k !== i - 1) }); };
 
   const val = (p) => p.fm || p.fmP || p.mv || p.mvP || 0;
-  const mediaVoto = (p) => p.mv || p.mvP || 0;
 
-  /* ---------- chi si puo' schierare ----------
-     Di norma solo chi hai comprato. In simulazione si aggiungono i giocatori
-     ancora liberi con il giudizio che hai scelto, cosi' prima dell'asta vedi
-     che squadra verrebbe fuori se li prendessi tutti. */
+  /* ---------- chi si puo' schierare, uguale per tutte le prove ---------- */
   const comprati = asta(legaAttiva).rosa.map((x) => players.find((p) => p.id === x.id)).filter(Boolean);
   const simula = !!F.simula;
   const livelli = F.livelli || [5, 4];
@@ -2355,66 +2364,135 @@ function Campo({ lega, legaAttiva, asta, players, mdTab, setLeghe, leghe, formaz
   const finto = (p) => simula && !presi.has(p.id);
   const ordinata = [...rosa].sort((a, b) => val(b) - val(a));
 
+  /* per il confronto in cima, il punteggio di ogni prova */
+  const punteggi = prove.map((pr) => contoProva(pr, { rosa, ordinata, mantra, moduli, mdTab, L }).totale);
+  const migliore = punteggi.length > 1 ? punteggi.indexOf(Math.max(...punteggi)) : -1;
+
+  return (
+    <>
+      {/* regolamento */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <span style={{ ...mono, fontSize: 10.5, color: C.inchiostroTenue, textTransform: "uppercase", letterSpacing: ".1em" }}>regolamento</span>
+        <Btn piccolo attivo={!mantra} onClick={() => setLeghe(leghe.map((l) => l.id === legaAttiva ? { ...l, modalita: "classic" } : l))}>classic</Btn>
+        <Btn piccolo tono="rosa" attivo={mantra} onClick={() => setLeghe(leghe.map((l) => l.id === legaAttiva ? { ...l, modalita: "mantra" } : l))}>mantra</Btn>
+      </div>
+
+      {/* simulazione, vale per tutte le prove perche' decide chi hai a disposizione */}
+      <div className="flex items-center gap-2 flex-wrap mt-2">
+        <span style={{ ...mono, fontSize: 10.5, color: C.inchiostroTenue, textTransform: "uppercase", letterSpacing: ".1em" }}>simulazione</span>
+        <Btn piccolo tono="rosa" attivo={simula} onClick={() => setF({ simula: !simula })}>
+          {simula ? "attiva" : "spenta"}
+        </Btn>
+        {simula && (
+          <Btn piccolo attivo={soloMiei} onClick={() => setF({ soloMiei: !soloMiei })}>
+            {soloMiei ? "solo questo campionato" : "tutti i campionati"}
+          </Btn>
+        )}
+      </div>
+
+      {simula && (
+        <>
+          <div className="flex gap-1 mt-2 flex-wrap">
+            {[5, 4, 3, 2].map((k) => {
+              const liv = INTERESSE[k];
+              const on = livelli.includes(k);
+              return (
+                <button key={k}
+                  onClick={() => setF({ livelli: on ? livelli.filter((x) => x !== k) : [...livelli, k] })}
+                  style={{
+                    padding: "5px 9px", borderRadius: 2, fontSize: 11, fontWeight: 700, ...display,
+                    textTransform: "uppercase", letterSpacing: ".03em",
+                    border: `1.5px solid ${on ? liv.col : C.riga}`,
+                    background: on ? liv.col : "transparent",
+                    color: on ? "#fff" : C.inchiostroTenue,
+                  }}>{liv.label}</button>
+              );
+            })}
+          </div>
+          <div style={{ ...mono, fontSize: 10.5, color: C.inchiostroTenue, marginTop: 6, lineHeight: 1.5 }}>
+            {comprati.length} {comprati.length === 1 ? "comprato" : "comprati"} più {simulati.length} da prendere.
+            I simulati hanno il bordo tratteggiato, i crediti non vengono toccati.
+          </div>
+        </>
+      )}
+
+      {/* le prove, con il confronto in cima quando sono piu' di una */}
+      <div className="flex items-center gap-2 flex-wrap" style={{ marginTop: 14 }}>
+        <span style={{ ...mono, fontSize: 10.5, color: C.inchiostroTenue, textTransform: "uppercase", letterSpacing: ".1em" }}>
+          {prove.length === 1 ? "la tua formazione" : `${prove.length} formazioni a confronto`}
+        </span>
+        <div style={{ flex: 1 }} />
+        <Btn piccolo tono="campo" onClick={aggiungiProva}>+ aggiungi una prova</Btn>
+      </div>
+
+      {prove.length > 1 && (
+        <div className="flex gap-1.5 flex-wrap" style={{ marginTop: 6 }}>
+          {prove.map((pr, i) => (
+            <div key={i} style={{
+              border: `1.5px solid ${i === migliore ? C.campo : C.riga}`,
+              background: i === migliore ? "rgba(31,107,74,.10)" : "#fff",
+              borderRadius: 3, padding: "5px 9px", minWidth: 96,
+            }}>
+              <div style={{ ...mono, fontSize: 9.5, color: C.inchiostroTenue, textTransform: "uppercase", letterSpacing: ".06em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 130 }}>
+                {pr.nome || `prova ${i + 1}`}
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span style={{ ...mono, fontSize: 16, fontWeight: 700 }}>{punteggi[i].toFixed(1)}</span>
+                <span style={{ ...mono, fontSize: 10, color: C.rosa, fontWeight: 700 }}>{moduli.includes(pr.modulo) ? pr.modulo : moduli[0]}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {prove.map((pr, i) => (
+        <Prova
+          key={i}
+          indice={i}
+          pr={pr}
+          setPr={(patch) => setProva(i, patch)}
+          onDuplica={() => duplicaProva(i)}
+          onElimina={i > 0 ? () => eliminaProva(i) : null}
+          sola={prove.length === 1}
+          migliore={i === migliore}
+          {...{ rosa, ordinata, mantra, moduli, mdTab, L, simula, finto, val }}
+        />
+      ))}
+
+      <div style={{ ...mono, fontSize: 10, color: C.inchiostroTenue, marginTop: 12, lineHeight: 1.5 }}>
+        Fantapunti stimati sulla fantamedia, bonus difensivo stimato sulla media voto pura, come da regolamento.
+        {mantra && " In Mantra i modificatori Classic non si applicano, al loro posto c'è il D-Factor."}
+      </div>
+    </>
+  );
+}
+
+/* Il conto di una prova senza disegnarla, serve per il confronto in cima.
+   Sta fuori dai componenti cosi' lo usano tutti e due senza duplicare la logica. */
+function contoProva(pr, { rosa, ordinata, mantra, moduli, mdTab, L }) {
+  const modulo = moduli.includes(pr.modulo) ? pr.modulo : moduli[0];
+  const caselle = caselleDelModulo(modulo, mantra);
+  const slots = caselle.map((c) => c.slot);
+  const manuale = pr.modo === "manuale";
+  const val = (p) => p.fm || p.fmP || p.mv || p.mvP || 0;
+  const mediaVoto = (p) => p.mv || p.mvP || 0;
   const esito = (p, slot) => esitoSlot(p, slot, mantra);
-  const piazzabile = (p, slot) => ["ok", "malus"].includes(esito(p, slot));
   const perfetto = (p, slot) => esito(p, slot) === "ok";
 
-  /* ---------- undici ---------- */
   let xi;
   if (manuale) {
-    const posti = Array.from({ length: slots.length }, (_, i) => (F.slots || [])[i] || null);
+    const posti = Array.from({ length: slots.length }, (_, i) => (pr.slots || [])[i] || null);
     xi = caselle.map((c, i) => ({ ...c, i, p: posti[i] ? rosa.find((x) => x.id === posti[i]) || null : null }));
   } else {
-    const match = assegna(slots, ordinata, perfetto);   // l'automatico non usa mai adattamenti
+    const match = assegna(slots, ordinata, perfetto);
     xi = caselle.map((c, i) => ({ ...c, i, p: match[i] > -1 ? ordinata[match[i]] : null }));
   }
 
-  const inCampo = new Set(xi.filter((s) => s.p).map((s) => s.p.id));
-  const panchina = ordinata.filter((p) => !inCampo.has(p.id));
   const schierati = xi.filter((s) => s.p);
-  const buchi = xi.length - schierati.length;
   const adattati = schierati.filter((s) => esito(s.p, s.slot) === "malus");
 
-  /* ---------- copertura dei ruoli ----------
-     Per ogni tipo di casella del modulo, quanti giocatori della rosa ci starebbero,
-     nel loro ruolo o adattati. Confrontato con quante caselle di quel tipo chiede
-     il modulo, dice dove sei scoperto e dove sei senza riserve. */
-  const copertura = (() => {
-    const tipi = [];
-    for (const c of caselle) {
-      const t = tipi.find((x) => x.slot === c.slot);
-      if (t) t.caselle++;
-      else tipi.push({ slot: c.slot, caselle: 1 });
-    }
-    return tipi.map((t) => {
-      const quanti = rosa.filter((p) => piazzabile(p, t.slot)).length;
-      return {
-        ...t, quanti,
-        stato: quanti < t.caselle ? "scarso" : quanti === t.caselle ? "giusto" : "coperto",
-      };
-    });
-  })();
-
-  /* Per ogni casella rimasta vuota adesso, cosa si puo' fare. */
-  const rimedi = xi
-    .filter((c) => !c.p)
-    .map((c) => {
-      const candidati = panchina
-        .filter((p) => piazzabile(p, c.slot))
-        .sort((a, b) => (perfetto(b, c.slot) - perfetto(a, c.slot)) || (val(b) - val(a)));
-      const chi = candidati[0] || null;
-      return {
-        slot: c.slot,
-        chi,
-        adattato: chi ? !perfetto(chi, c.slot) : false,
-        inRosa: rosa.filter((p) => piazzabile(p, c.slot)).length,
-      };
-    });
-
-  /* ---------- bonus difensivo ---------- */
   let bonus = 0, mediaBonus = 0, bonusAttivo = false, spiegaBonus = "";
   if (mantra) {
-    /* D-Factor, i 5 uomini difensivi, almeno 3 con lettera D o B */
     const difensivi = schierati.filter((s) => (s.p.rm || []).some((r) => RUOLI_DIF_M.includes(r))).map((s) => s.p);
     const scelti = [...difensivi].sort((a, b) => mediaVoto(b) - mediaVoto(a)).slice(0, 5);
     const puri = scelti.filter((p) => (p.rm || []).some((r) => RUOLI_D_PURI.includes(r))).length;
@@ -2430,7 +2508,6 @@ function Campo({ lega, legaAttiva, asta, players, mdTab, setLeghe, leghe, formaz
       ? `media ${mediaBonus.toFixed(2)} su ${conPortiere ? "portiere e 5" : "5"} uomini difensivi`
       : scelti.length < 5 ? "servono 5 uomini di stampo difensivo" : `servono almeno 3 tra Dc B Dd Ds, ora sono ${puri}`;
   } else {
-    /* modificatore difesa Classic, portiere e i 3 migliori difensori, almeno 4 difensori */
     const por = schierati.find((s) => s.p.r === "P")?.p;
     const difs = schierati.filter((s) => s.p.r === "D").map((s) => s.p);
     bonusAttivo = !!por && difs.length >= 4;
@@ -2443,12 +2520,51 @@ function Campo({ lega, legaAttiva, asta, players, mdTab, setLeghe, leghe, formaz
   }
 
   const totale = schierati.reduce((s, x) => s + val(x.p), 0) + bonus - adattati.length;
+  return { modulo, caselle, slots, manuale, xi, schierati, adattati, bonus, bonusAttivo, spiegaBonus, totale };
+}
+
+/* Una prova, cioe' un campo con i suoi undici. Il trascinamento e il tocco
+   vivono qui dentro, quindi due prove non si danno fastidio a vicenda. */
+function Prova({ indice, pr, setPr, onDuplica, onElimina, sola, migliore, rosa, ordinata, mantra, moduli, mdTab, L, simula, finto, val }) {
+  const [drag, setDrag] = useState(null);
+  const [scelto, setScelto] = useState(null);
+  const [rinomina, setRinomina] = useState(false);
+
+  const conto = contoProva(pr, { rosa, ordinata, mantra, moduli, mdTab, L });
+  const { modulo, caselle, slots, manuale, xi, schierati, adattati, bonus, bonusAttivo, spiegaBonus, totale } = conto;
+
+  const esito = (p, slot) => esitoSlot(p, slot, mantra);
+  const piazzabile = (p, slot) => ["ok", "malus"].includes(esito(p, slot));
+  const perfetto = (p, slot) => esito(p, slot) === "ok";
+
+  const inCampo = new Set(xi.filter((s) => s.p).map((s) => s.p.id));
+  const panchina = ordinata.filter((p) => !inCampo.has(p.id));
+  const buchi = xi.length - schierati.length;
+
+  const copertura = (() => {
+    const tipi = [];
+    for (const c of caselle) {
+      const t = tipi.find((x) => x.slot === c.slot);
+      if (t) t.caselle++;
+      else tipi.push({ slot: c.slot, caselle: 1 });
+    }
+    return tipi.map((t) => {
+      const quanti = rosa.filter((p) => piazzabile(p, t.slot)).length;
+      return { ...t, quanti, stato: quanti < t.caselle ? "scarso" : quanti === t.caselle ? "giusto" : "coperto" };
+    });
+  })();
+
+  const rimedi = xi.filter((c) => !c.p).map((c) => {
+    const candidati = panchina
+      .filter((p) => piazzabile(p, c.slot))
+      .sort((a, b) => (perfetto(b, c.slot) - perfetto(a, c.slot)) || (val(b) - val(a)));
+    const chi = candidati[0] || null;
+    return { slot: c.slot, chi, adattato: chi ? !perfetto(chi, c.slot) : false, inRosa: rosa.filter((p) => piazzabile(p, c.slot)).length };
+  });
 
   /* ---------- trascinamento ---------- */
-  const [drag, setDrag] = useState(null);
-
   function posiziona(id, daIndice, aIndice) {
-    const posti = Array.from({ length: slots.length }, (_, i) => (F.slots || [])[i] || null);
+    const posti = Array.from({ length: slots.length }, (_, i) => (pr.slots || [])[i] || null);
     if (daIndice != null) posti[daIndice] = null;
     const giaAltrove = posti.indexOf(id);
     if (giaAltrove > -1) posti[giaAltrove] = null;
@@ -2457,12 +2573,14 @@ function Campo({ lega, legaAttiva, asta, players, mdTab, setLeghe, leghe, formaz
       posti[aIndice] = id;
       if (sloggiato && daIndice != null) posti[daIndice] = sloggiato;
     }
-    setF({ slots: posti, modo: "manuale" });
+    setPr({ slots: posti, modo: "manuale" });
   }
-
   function slotSotto(x, y) {
     const box = document.elementFromPoint(x, y)?.closest?.("[data-slot]");
-    return box ? parseInt(box.getAttribute("data-slot"), 10) : null;
+    if (!box) return null;
+    /* ogni prova ha il suo campo, quindi controlliamo che la casella sia di questa */
+    if (box.getAttribute("data-prova") !== String(indice)) return null;
+    return parseInt(box.getAttribute("data-slot"), 10);
   }
   function avvioDrag(e, id, da) {
     if (!manuale) return;
@@ -2483,8 +2601,6 @@ function Campo({ lega, legaAttiva, asta, players, mdTab, setLeghe, leghe, formaz
     setDrag(null);
   }
 
-  /* ---------- tocco singolo ---------- */
-  const [scelto, setScelto] = useState(null);
   function tocca(id, da) { if (manuale) setScelto((s) => (s && s.id === id ? null : { id, da })); }
   function toccaSlot(i) {
     if (!manuale) return;
@@ -2499,75 +2615,63 @@ function Campo({ lega, legaAttiva, asta, players, mdTab, setLeghe, leghe, formaz
 
   const gAttivo = drag ? rosa.find((p) => p.id === drag.id) : (scelto ? rosa.find((p) => p.id === scelto.id) : null);
   const statoCasella = (i) => gAttivo ? esito(gAttivo, slots[i]) : null;
-
   const linee = [0, 1, 2, 3, 4].map((n) => xi.filter((s) => s.linea === n));
 
   return (
-    <div onPointerMove={muoviDrag} onPointerUp={fineDrag} onPointerCancel={fineDrag}>
-      {/* regolamento */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <span style={{ ...mono, fontSize: 10.5, color: C.inchiostroTenue, textTransform: "uppercase", letterSpacing: ".1em" }}>regolamento</span>
-        <Btn piccolo attivo={!mantra} onClick={() => setLeghe(leghe.map((l) => l.id === legaAttiva ? { ...l, modalita: "classic" } : l))}>classic</Btn>
-        <Btn piccolo tono="rosa" attivo={mantra} onClick={() => setLeghe(leghe.map((l) => l.id === legaAttiva ? { ...l, modalita: "mantra" } : l))}>mantra</Btn>
-      </div>
+    <div onPointerMove={muoviDrag} onPointerUp={fineDrag} onPointerCancel={fineDrag}
+      style={{
+        marginTop: 10, padding: sola ? 0 : 10, borderRadius: 4,
+        border: sola ? "none" : `2px solid ${migliore ? C.campo : C.riga}`,
+        background: sola ? "transparent" : "rgba(255,255,255,.45)",
+      }}>
 
-      {/* modo formazione */}
-      <div className="flex items-center gap-2 flex-wrap mt-2">
-        <span style={{ ...mono, fontSize: 10.5, color: C.inchiostroTenue, textTransform: "uppercase", letterSpacing: ".1em" }}>formazione</span>
-        <Btn piccolo tono="campo" attivo={!manuale} onClick={() => setF({ modo: "auto" })}>automatica</Btn>
-        <Btn piccolo tono="campo" attivo={manuale} onClick={() => setF({ modo: "manuale" })}>a mano</Btn>
+      {/* testata della prova */}
+      {!sola && (
+        <div className="flex items-center gap-2 flex-wrap" style={{ marginBottom: 8 }}>
+          {rinomina ? (
+            <input
+              autoFocus value={pr.nome || ""}
+              onChange={(e) => setPr({ nome: e.target.value })}
+              onBlur={() => setRinomina(false)}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === "Escape") setRinomina(false); }}
+              placeholder={`Prova ${indice + 1}`}
+              style={{ padding: "3px 6px", border: `1px solid ${C.rosa}`, borderRadius: 2, fontSize: 13.5, fontWeight: 800, ...display, maxWidth: 180 }}
+            />
+          ) : (
+            <button onClick={() => setRinomina(true)} title="cambia nome"
+              style={{ fontSize: 14.5, fontWeight: 800, ...display }}>
+              {pr.nome || `Prova ${indice + 1}`} <span style={{ fontSize: 11, color: C.inchiostroTenue, opacity: .7 }}>✎</span>
+            </button>
+          )}
+          {migliore && (
+            <span style={{ ...mono, fontSize: 9.5, fontWeight: 800, color: "#fff", background: C.campo, borderRadius: 2, padding: "2px 6px", textTransform: "uppercase", letterSpacing: ".08em" }}>
+              la migliore
+            </span>
+          )}
+          <div style={{ flex: 1 }} />
+          <Btn piccolo title="copia questa prova" onClick={onDuplica}>copia</Btn>
+          {onElimina && <Btn piccolo title="elimina questa prova" onClick={() => { if (confirm("Elimino questa prova")) onElimina(); }}>×</Btn>}
+        </div>
+      )}
+
+      {/* modo e modulo */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <Btn piccolo tono="campo" attivo={!manuale} onClick={() => setPr({ modo: "auto" })}>automatica</Btn>
+        <Btn piccolo tono="campo" attivo={manuale} onClick={() => setPr({ modo: "manuale" })}>a mano</Btn>
         {manuale && (
           <>
             <Btn piccolo onClick={() => {
               const match = assegna(slots, ordinata, perfetto);
-              setF({ slots: slots.map((_, i) => (match[i] > -1 ? ordinata[match[i]].id : null)) });
+              setPr({ slots: slots.map((_, i) => (match[i] > -1 ? ordinata[match[i]].id : null)) });
             }}>riempi da sola</Btn>
-            <Btn piccolo onClick={() => setF({ slots: [] })}>svuota</Btn>
+            <Btn piccolo onClick={() => setPr({ slots: [] })}>svuota</Btn>
           </>
         )}
       </div>
 
-      <div className="flex items-center gap-2 flex-wrap mt-2">
-        <span style={{ ...mono, fontSize: 10.5, color: C.inchiostroTenue, textTransform: "uppercase", letterSpacing: ".1em" }}>simulazione</span>
-        <Btn piccolo tono="rosa" attivo={simula} onClick={() => setF({ simula: !simula, slots: [] })}>
-          {simula ? "attiva" : "spenta"}
-        </Btn>
-        {simula && (
-          <Btn piccolo attivo={soloMiei} onClick={() => setF({ soloMiei: !soloMiei, slots: [] })}>
-            {soloMiei ? "solo questo campionato" : "tutti i campionati"}
-          </Btn>
-        )}
-      </div>
-
-      {simula && (
-        <>
-          <div className="flex gap-1 mt-2 flex-wrap">
-            {[5, 4, 3, 2].map((k) => {
-              const liv = INTERESSE[k];
-              const on = livelli.includes(k);
-              return (
-                <button key={k}
-                  onClick={() => setF({ livelli: on ? livelli.filter((x) => x !== k) : [...livelli, k], slots: [] })}
-                  style={{
-                    padding: "5px 9px", borderRadius: 2, fontSize: 11, fontWeight: 700, ...display,
-                    textTransform: "uppercase", letterSpacing: ".03em",
-                    border: `1.5px solid ${on ? liv.col : C.riga}`,
-                    background: on ? liv.col : "transparent",
-                    color: on ? "#fff" : C.inchiostroTenue,
-                  }}>{liv.label}</button>
-              );
-            })}
-          </div>
-          <div style={{ ...mono, fontSize: 10.5, color: C.inchiostroTenue, marginTop: 6, lineHeight: 1.5 }}>
-            {comprati.length} {comprati.length === 1 ? "comprato" : "comprati"} più {simulati.length} da prendere.
-            I simulati hanno il bordo tratteggiato, i crediti non vengono toccati.
-          </div>
-        </>
-      )}
-
       <div className="flex gap-1 mt-2 flex-wrap">
         {moduli.map((k) => (
-          <Btn key={k} piccolo attivo={modulo === k} onClick={() => setF({ modulo: k, slots: [] })}>{k}</Btn>
+          <Btn key={k} piccolo attivo={modulo === k} onClick={() => setPr({ modulo: k, slots: [] })}>{k}</Btn>
         ))}
       </div>
 
@@ -2609,7 +2713,7 @@ function Campo({ lega, legaAttiva, asta, players, mdTab, setLeghe, leghe, formaz
         </div>
       )}
 
-      {/* copertura dei ruoli */}
+      {/* copertura dei ruoli, dipende dal modulo quindi sta dentro la prova */}
       <div style={{ background: "#fff", border: `1px solid ${C.riga}`, borderRadius: 3, padding: "9px 11px", marginTop: 8 }}>
         <div className="flex items-baseline justify-between">
           <div style={{ fontSize: 13.5, fontWeight: 800 }}>Copertura dei ruoli</div>
@@ -2634,10 +2738,6 @@ function Campo({ lega, legaAttiva, asta, players, mdTab, setLeghe, leghe, formaz
             );
           })}
         </div>
-        <div style={{ ...mono, fontSize: 10, color: C.inchiostroTenue, marginTop: 7, lineHeight: 1.5 }}>
-          Il numero è quanti ne hai in rosa per quel tipo di casella, adattamenti compresi.
-          Bordo rosso non bastano, bordo arancio ci arrivi esatto senza riserve, bordo chiaro hai margine.
-        </div>
       </div>
 
       {manuale && (
@@ -2661,6 +2761,7 @@ function Campo({ lega, legaAttiva, asta, players, mdTab, setLeghe, leghe, formaz
                 <div
                   key={s.i}
                   data-slot={s.i}
+                  data-prova={indice}
                   onPointerDown={(e) => s.p && avvioDrag(e, s.p.id, s.i)}
                   onClick={() => toccaSlot(s.i)}
                   style={{
@@ -2725,11 +2826,6 @@ function Campo({ lega, legaAttiva, asta, players, mdTab, setLeghe, leghe, formaz
         })}
       </div>
 
-      <div style={{ ...mono, fontSize: 10, color: C.inchiostroTenue, marginTop: 8, lineHeight: 1.5 }}>
-        Fantapunti stimati sulla fantamedia, bonus difensivo stimato sulla media voto pura, come da regolamento.
-        {mantra && " In Mantra i modificatori Classic non si applicano, al loro posto c'è il D-Factor."}
-      </div>
-
       {drag && gAttivo && (
         <div style={{
           position: "fixed", left: drag.x, top: drag.y, transform: "translate(-50%,-140%)",
@@ -2746,6 +2842,7 @@ function Campo({ lega, legaAttiva, asta, players, mdTab, setLeghe, leghe, formaz
     </div>
   );
 }
+
 /* ------------------------------------------------------------------ */
 /*  VISTA DATI                                                         */
 /* ------------------------------------------------------------------ */
@@ -3455,6 +3552,19 @@ function Guida() {
           <>Scegli il <b>modulo</b>. <b>Automatica</b> schiera i migliori e mette solo chi è nel suo ruolo esatto. <b>A mano</b> ti lascia decidere, trascinando oppure toccando il giocatore e poi la casella.</>,
           <>Trascinando, il <b>bordo verde</b> è la casella giusta, l'<b>arancio</b> vuol dire adattato e ti costa un punto, <b>nessun bordo</b> vuol dire che lì non ci può stare.</>,
           <><b>Fantapunti stimati</b> è quanto farebbe questa formazione in una giornata media.</>,
+        ]} />
+        <div style={{ marginTop: 9, fontWeight: 600 }}>Più formazioni a confronto</div>
+        <div style={{ marginBottom: 6 }}>
+          Con lo stesso modulo o con moduli diversi puoi provare più formazioni e vederle
+          una sotto l'altra, invece di rifare e disfare sempre la stessa.
+        </div>
+        <Elenco voci={[
+          <><b>+ aggiungi una prova</b> ne mette una nuova in fondo. Quante ne vuoi.</>,
+          <>Ognuna ha il suo modulo, i suoi undici, la sua panchina e i suoi fantapunti, e si modifica da sola senza toccare le altre.</>,
+          <>Quando ce n'è più di una, in cima compare la <b>striscia del confronto</b> con i punteggi, e quella che rende di più si segna con <b>la migliore</b> e il bordo verde.</>,
+          <><b>La rosa è una sola e vale per tutte.</b> Un giocatore schierato in una prova resta disponibile in tutte le altre, non viene tolto da nessuna parte.</>,
+          <>Il nome si cambia toccandolo, <b>copia</b> ne fa un duplicato da cui partire, la <b>×</b> la elimina.</>,
+          <>La <b>simulazione</b> invece è una sola per tutte, perché decide chi hai a disposizione, non come lo schieri.</>,
         ]} />
         <div style={{ marginTop: 9, fontWeight: 600 }}>Simulazione preasta</div>
         <div style={{ marginBottom: 6 }}>
